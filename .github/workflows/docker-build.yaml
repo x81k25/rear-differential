@@ -89,5 +89,3 @@ jobs:
             PGSQL_NAME=${{ secrets.PGSQL_NAME }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
