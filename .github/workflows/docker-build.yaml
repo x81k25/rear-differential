@@ -19,7 +19,7 @@ on:
 env:
   REGISTRY: ghcr.io
   # Image name with suffix
-  IMAGE_NAME: ${{ github.repository }}-rear-diff
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
@@ -87,7 +87,5 @@ jobs:
             PGSQL_USER=${{ secrets.PGSQL_USER }}
             PGSQL_PASSWORD=${{ secrets.PGSQL_PASSWORD }}
             PGSQL_NAME=${{ secrets.PGSQL_NAME }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           cache-from: type=gha
           cache-to: type=gha,mode=max
