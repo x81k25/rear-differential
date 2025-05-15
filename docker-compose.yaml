@@ -1,0 +1,11 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./dockerfile
+    image: rear-diff-image
+    container_name: reel-diff-container
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
