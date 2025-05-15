@@ -4,8 +4,14 @@ services:
       context: .
       dockerfile: ./dockerfile
     image: rear-diff-image
-    container_name: reel-diff-container
+    container_name: rear-diff-container
     ports:
       - "8000:8000"
     env_file:
       - .env
+    networks:
+      - rear-diff-network
+
+networks:
+  rear-diff-network:
+    driver: bridge

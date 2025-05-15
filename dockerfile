@@ -1,6 +1,6 @@
 FROM python:3.12
 
-WORKDIR /reel-driver
+WORKDIR /rear-differential
 
 # Copy requirements and install dependencies
 COPY requirements.txt .
