@@ -96,7 +96,6 @@ Returns a JSON array of media objects with the following structure:
       "updated_at": "2025-05-07T20:33:57.738163Z",
       "tmdb_id": 802473
     }
-    // Additional media items...
   ],
   "pagination": {
     "total": 1245,
