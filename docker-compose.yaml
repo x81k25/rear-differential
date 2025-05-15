@@ -3,10 +3,20 @@ services:
     build:
       context: .
       dockerfile: ./dockerfile
+      args:
+        # Pass all environment variables to build args
+        API_HOST: ${API_HOST}
+        API_PORT: ${API_PORT}
+        LOG_LEVEL: ${LOG_LEVEL}
+        PGSQL_HOST: ${PGSQL_HOST}
+        PGSQL_PORT: ${PGSQL_PORT}
+        PGSQL_USER: ${PGSQL_USER}
+        PGSQL_PASSWORD: ${PGSQL_PASSWORD}
+        PGSQL_NAME: ${PGSQL_NAME}
     image: rear-diff-image
     container_name: rear-diff-container
     ports:
-      - "8000:8000"
+      - "${API_PORT}:${API_PORT}"
     env_file:
       - .env
     networks:

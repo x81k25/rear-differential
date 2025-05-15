@@ -304,14 +304,15 @@ docker run -d -p 8000:8000 --name rear-diff-container --env-file .env rear-diff-
 **With Docker Compose**
 ```bash
 # Build and start services
+docker compose -f docker-compose.yaml up -d
+
+# Run in foreground
 docker compose -f docker-compose.yaml up
 
 # Build with no cache and start
 docker compose -f docker-compose.yaml build --no-cache
 docker compose -f docker-compose.yaml up
 
-# Run in background
-docker compose -f docker-compose.yaml up -d
 
 # Stop services
 docker compose -f docker-compose.yaml down
