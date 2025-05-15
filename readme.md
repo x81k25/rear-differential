@@ -204,7 +204,7 @@ To test the Rear Differential API locally before containerization:
 1. Ensure required dependencies are installed:
 
 ```bash
-pip install fastapi uvicorn
+pip install fastapi uvicorn psycopg2-binary
 ```
 
 2. Start the API server:
