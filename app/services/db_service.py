@@ -113,8 +113,8 @@ class DatabaseService:
                     "total": total,
                     "limit": limit,
                     "offset": offset,
-                    "next": f"/rear-diff/media?offset={next_offset}&limit={limit}" if next_offset is not None else None,
-                    "previous": f"/rear-diff/media?offset={previous_offset}&limit={limit}" if previous_offset is not None else None
+                    "next": f"/rear-diff/training?offset={next_offset}&limit={limit}" if next_offset is not None else None,
+                    "previous": f"/rear-diff/training?offset={previous_offset}&limit={limit}" if previous_offset is not None else None
                 }
 
                 return {

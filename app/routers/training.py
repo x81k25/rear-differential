@@ -1,4 +1,4 @@
-# app/routers/media.py
+# app/routers/training.py
 from fastapi import APIRouter, HTTPException, Query, Path
 from typing import Optional
 from app.models.api import TrainingListResponse, LabelUpdateRequest, LabelUpdateResponse, MediaType, LabelType
