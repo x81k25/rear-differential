@@ -249,6 +249,19 @@ Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766/label
 
 4. Access the interactive API documentation at http://localhost:8000/rear-diff/docs
 
+5. To stop the server when finished:
+
+# Press Ctrl+C in the terminal running the server
+
+6. Kill any running instances that weren't terminated properly
+
+```bash
+pkill -9 python
+````
+```powershell
+Get-Process -Name python | Stop-Process -Force
+```
+
 ## Building and Running in Docker Locally
 
 **Building the image**
