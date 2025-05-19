@@ -13,7 +13,7 @@ rear-differential/
 │   │   ├── __init__.py
 │   │   └── api.py              # API request/response models
 │   ├── routers/                # API route handlers
-│   │   └── media.py            # Media endpoints
+│   │   └── training.py         # Training data endpoints
 │   ├── services/               # Business logic
 │   │   └── db_service.py       # Database service
 │   └── main.py                 # FastAPI application entry point
@@ -31,14 +31,14 @@ rear-differential/
 The API exposes the following endpoints:
 
 - `GET /rear-diff/health` - Health check endpoint
-- `GET /rear-diff/media` - Retrieves all media entries from the database
-- `PATCH /rear-diff/media/{hash}/rejection-status` - Updates the rejection status for a specific media item
+- `GET /rear-diff/training` - Retrieves training data entries from the database
+- `PATCH /rear-diff/training/{imdb_id}/label` - Updates the label for a specific training data entry
 
-### GET /rear-diff/media
+### GET /rear-diff/training
 
-Retrieves all media entries from the database.
+Retrieves training data entries from the database.
 
-**Description**: This endpoint returns a collection of all media items stored in the system. Each item contains detailed information about media files including identification, content metadata, processing status, and technical specifications.
+**Description**: This endpoint returns a collection of training data entries stored in the system. Each entry contains detailed information about media items with associated labels for training purposes.
 
 **HTTP Method**: GET
 
@@ -46,8 +46,8 @@ Retrieves all media entries from the database.
 
 **Optional Query Parameters**:
 
-- `media_type`: Filter by media type (e.g., "movie", "tv")
-- `pipeline_status`: Filter by processing status (e.g., "ingested", "rejected")
+- `media_type`: Filter by media type (e.g., "movie", "tv_show", "tv_season")
+- `label`: Filter by label (e.g., "would_watch", "would_not_watch")
 - `limit`: Maximum number of records to return (default: 100)
 - `offset`: Number of records to skip (for pagination)
 - `sort_by`: Field to sort results by (default: "created_at")
@@ -55,53 +55,35 @@ Retrieves all media entries from the database.
 
 **Response**:
 
-Returns a JSON array of media objects with the following structure:
-
 **Success Response (200 OK)**:
 
 ```json
 {
   "data": [
     {
-      "hash": "eb50f630702e8a59ef6ecfaf9f5eecae7a9856a1",
+      "imdb_id": "tt2759766",
+      "tmdb_id": 802473,
+      "label": "would_watch",
       "media_type": "movie",
       "media_title": "40 Under 40",
       "season": null,
       "episode": null,
       "release_year": 2013,
-      "pipeline_status": "rejected",
-      "error_status": false,
-      "error_condition": "media ratings API status code: 401",
-      "rejection_status": "rejected",
-      "rejection_reason": "resolution 720p is not in allowed_values",
-      "parent_path": null,
-      "target_path": null,
-      "original_title": "40 Under 40 (2013) [720p] [WEBRip] [YTS.MX]",
-      "original_path": null,
-      "original_link": "https://yts.mx/torrent/download/EB50F630702E8A59EF6ECFAF9F5EECAE7A9856A1",
-      "rss_source": null,
-      "uploader": null,
       "genre": ["Documentary"],
       "language": ["en"],
       "rt_score": null,
       "metascore": null,
-      "imdb_rating": null,
-      "imdb_votes": null,
-      "imdb_id": "tt2759766",
-      "resolution": "720p",
-      "video_codec": null,
-      "upload_type": "WEBRip",
-      "audio_codec": null,
+      "imdb_rating": 7.2,
+      "imdb_votes": 1203,
       "created_at": "2025-05-07T20:33:57.738163Z",
-      "updated_at": "2025-05-07T20:33:57.738163Z",
-      "tmdb_id": 802473
+      "updated_at": "2025-05-07T20:33:57.738163Z"
     }
   ],
   "pagination": {
     "total": 1245,
     "limit": 100,
     "offset": 0,
-    "next": "/rear-diff/media?offset=100&limit=100",
+    "next": "/rear-diff/training?offset=100&limit=100",
     "previous": null
   }
 }
@@ -116,32 +98,32 @@ Returns a JSON array of media objects with the following structure:
 }
 ```
 
-### PATCH /rear-diff/media/{hash}/rejection-status
+### PATCH /rear-diff/training/{imdb_id}/label
 
-Updates the rejection status for a specific media item.
+Updates the label for a specific training data entry.
 
-**Description**: This endpoint allows users to update the rejection_status column in the database for a media item identified by its hash.
+**Description**: This endpoint allows users to update the label column in the database for a training data entry identified by its IMDB ID.
 
 **HTTP Method**: PATCH
 
 **Path Parameters**:
 
-- `hash`: The unique identifier (40-character SHA-1 hash) of the media item to update
+- `imdb_id`: The unique identifier (format: tt followed by 7-8 digits) of the training data entry to update
 
 **Request Body**:
 
 ```json
 {
-  "hash": "eb50f630702e8a59ef6ecfaf9f5eecae7a9856a1",
-  "rejection_status": "accepted"
+  "imdb_id": "tt2759766",
+  "label": "would_watch"
 }
 ```
 
 **Required Fields**:
 
-- `hash`: String - The 40-character SHA-1 hash of the media item (must match the hash in the URL path)
-- `rejection_status`: String - The new rejection status value
-  - Valid values: "unfiltered", "accepted", "rejected", "override"
+- `imdb_id`: String - The IMDB ID of the training data entry (must match the imdb_id in the URL path)
+- `label`: String - The new label value
+  - Valid values: "would_watch", "would_not_watch"
 
 **Responses**:
 
@@ -150,7 +132,7 @@ Updates the rejection status for a specific media item.
 ```json
 {
   "success": true,
-  "message": "Rejection status updated successfully"
+  "message": "Label updated successfully"
 }
 ```
 
@@ -162,17 +144,17 @@ Updates the rejection status for a specific media item.
 {
   "success": false,
   "error": "Invalid request",
-  "message": "Rejection status must be one of: unfiltered, accepted, rejected, override"
+  "message": "Label must be one of: would_watch, would_not_watch"
 }
 ```
 
-**400 Bad Request (Hash Mismatch)**:
+**400 Bad Request (IMDB ID Mismatch)**:
 
 ```json
 {
   "success": false,
-  "error": "Hash mismatch",
-  "message": "Path hash and body hash do not match"
+  "error": "IMDB ID mismatch",
+  "message": "Path IMDB ID and body IMDB ID do not match"
 }
 ```
 
@@ -181,8 +163,8 @@ Updates the rejection status for a specific media item.
 ```json
 {
   "success": false,
-  "error": "Media not found",
-  "message": "No media found with hash: eb50f630702e8a59ef6ecfaf9f5eecae7a9856a1"
+  "error": "Training data not found",
+  "message": "No training data found with IMDB ID: tt2759766"
 }
 ```
 
@@ -222,60 +204,60 @@ curl http://localhost:8000/rear-diff/health
 Invoke-RestMethod -Uri http://localhost:8000/rear-diff/health
 ```
 
-**Get media entries:**
+**Get training data:**
 
 ```bash
-# Get all media
-curl http://localhost:8000/rear-diff/media
+# Get all training data
+curl http://localhost:8000/rear-diff/training
 ```
 ```powershell
-Invoke-RestMethod -Uri http://localhost:8000/rear-diff/media
+Invoke-RestMethod -Uri http://localhost:8000/rear-diff/training
 ```
 
 ```bash
 # Get movies only
-curl "http://localhost:8000/rear-diff/media?media_type=movie&limit=10"
+curl "http://localhost:8000/rear-diff/training?media_type=movie&limit=10"
 ```
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/media?media_type=movie&limit=10"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?media_type=movie&limit=10"
 ```
 
 ```bash
-# Get rejected media items
-curl "http://localhost:8000/rear-diff/media?pipeline_status=rejected&limit=25&sort_by=updated_at&sort_order=desc"
+# Get items with specific label
+curl "http://localhost:8000/rear-diff/training?label=would_watch&limit=25&sort_by=updated_at&sort_order=desc"
 ```
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/media?pipeline_status=rejected&limit=25&sort_by=updated_at&sort_order=desc"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?label=would_watch&limit=25&sort_by=updated_at&sort_order=desc"
 ```
 
-**Update rejection status:**
+**Update label:**
 
 ```bash
-# Update rejection status to "accepted"
-curl -X PATCH http://localhost:8000/rear-diff/media/eb50f630702e8a59ef6ecfaf9f5eecae7a9856a1/rejection-status \
+# Update label to "would_watch"
+curl -X PATCH http://localhost:8000/rear-diff/training/tt2759766/label \
   -H "Content-Type: application/json" \
-  -d '{"hash": "eb50f630702e8a59ef6ecfaf9f5eecae7a9856a1", "rejection_status": "accepted"}'
+  -d '{"imdb_id": "tt2759766", "label": "would_watch"}'
 ```
 ```powershell
 $body = @{
-  hash = "eb50f630702e8a59ef6ecfaf9f5eecae7a9856a1"
-  rejection_status = "accepted"
+  imdb_id = "tt2759766"
+  label = "would_watch"
 }
 $json = ConvertTo-Json $body
-Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/media/eb50f630702e8a59ef6ecfaf9f5eecae7a9856a1/rejection-status" -Method Patch -Body $json -ContentType "application/json"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766/label" -Method Patch -Body $json -ContentType "application/json"
 ```
 
 4. Access the interactive API documentation at http://localhost:8000/rear-diff/docs
 
 5. To stop the server when finished:
-```bash
+
 # Press Ctrl+C in the terminal running the server
-```
 
 6. Kill any running instances that weren't terminated properly
+
 ```bash
 pkill -9 python
-```
+````
 ```powershell
 Get-Process -Name python | Stop-Process -Force
 ```
