@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     API_HOST: str = Field(default="0.0.0.0", description="Host to bind the API server")
     API_PORT: int = Field(default=8000, description="Port to run the API server")
 
-    # Database Configuration
+   # Database Configuration
     PGSQL_HOST: str = Field(default="localhost", description="Database host")
     PGSQL_PORT: int = Field(default=5432, description="Database port")
     PGSQL_USER: str = Field(default="postgres", description="Database user")

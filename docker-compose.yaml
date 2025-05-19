@@ -8,13 +8,12 @@ services:
         API_HOST: ${API_HOST}
         API_PORT: ${API_PORT}
         LOG_LEVEL: ${LOG_LEVEL}
-
         # These would come from GitHub secrets in CI/CD
         PGSQL_HOST: ${DB_HOST}
         PGSQL_PORT: ${DB_PORT}
         PGSQL_USER: ${DB_USER}
         PGSQL_PASSWORD: ${DB_PASSWORD}
-        PGSQL_NAME: ${DB_NAME}
+        PGSQL_NAME: ${DB_NAME}       
     image: rear-diff-image
     container_name: rear-diff-container
     ports:
