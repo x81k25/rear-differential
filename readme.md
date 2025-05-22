@@ -2,7 +2,7 @@
 
 The rear-differential API provides a link between the main database of the automatic-transmission platform and the front-end layer
 
-## Project Structure
+## project structure
 
 ```
 rear-differential/
@@ -26,7 +26,7 @@ rear-differential/
 └── requirements.txt            # Generated API dependencies
 ```
 
-### API Endpoints
+### API endpoints
 
 The API exposes the following endpoints:
 
@@ -61,22 +61,37 @@ Retrieves training data entries from the database.
 {
   "data": [
     {
-      "imdb_id": "tt2759766",
-      "tmdb_id": 802473,
-      "label": "would_watch",
+      "imdb_id": "tt21815562",
+      "tmdb_id": 1013601,
+      "label": "would_not_watch",
       "media_type": "movie",
-      "media_title": "40 Under 40",
+      "media_title": "The Alto Knights",
       "season": null,
       "episode": null,
-      "release_year": 2013,
-      "genre": ["Documentary"],
-      "language": ["en"],
-      "rt_score": null,
-      "metascore": null,
-      "imdb_rating": 7.2,
-      "imdb_votes": 1203,
-      "created_at": "2025-05-07T20:33:57.738163Z",
-      "updated_at": "2025-05-07T20:33:57.738163Z"
+      "release_year": 2025,
+      "budget": 45000000,
+      "revenue": 9577695,
+      "runtime": 123,
+      "origin_country": ["US"],
+      "production_companies": ["Warner Bros. Pictures", "Winkler Films", "Domain Entertainment"],
+      "production_countries": ["US"],
+      "production_status": "Released",
+      "original_language": "en",
+      "spoken_languages": ["en"],
+      "genre": ["Crime", "Drama", "History"],
+      "original_media_title": "The Alto Knights",
+      "tagline": "The most dangerous enemy is an old friend.",
+      "overview": "Two of New York's most notorious organized crime bosses, Frank Costello and Vito Genovese, vie for control of the city's streets. Once the best of friends, petty jealousies and a series of betrayals place them on a deadly collision course that will reshape the Mafia (and America) forever.",
+      "tmdb_rating": 6.241,
+      "tmdb_votes": 172,
+      "rt_score": 39,
+      "metascore": 47,
+      "imdb_rating": 5.7,
+      "imdb_votes": 6467,
+      "human_labeled": null,
+      "anomalous": null,
+      "created_at": "2025-05-21T02:27:51.094287Z",
+      "updated_at": "2025-05-21T02:27:51.094287Z"
     }
   ],
   "pagination": {
@@ -198,47 +213,56 @@ uvicorn app.main:app --reload
 **Health check:**
 
 ```bash
+# bash
 curl http://localhost:8000/rear-diff/health
 ```
 ```powershell
+# powershell
 Invoke-RestMethod -Uri http://localhost:8000/rear-diff/health
 ```
 
 **Get training data:**
 
+*Get all training data*
 ```bash
-# Get all training data
+# bash
 curl http://localhost:8000/rear-diff/training
 ```
 ```powershell
+# powershell
 Invoke-RestMethod -Uri http://localhost:8000/rear-diff/training
 ```
 
+*Get movies only*
 ```bash
-# Get movies only
+# bash
 curl "http://localhost:8000/rear-diff/training?media_type=movie&limit=10"
 ```
 ```powershell
+# powershell
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?media_type=movie&limit=10"
 ```
 
+*Get items with specific label*
 ```bash
-# Get items with specific label
+# bash
 curl "http://localhost:8000/rear-diff/training?label=would_watch&limit=25&sort_by=updated_at&sort_order=desc"
 ```
 ```powershell
+# powershell
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?label=would_watch&limit=25&sort_by=updated_at&sort_order=desc"
 ```
 
 **Update label:**
 
 ```bash
-# Update label to "would_watch"
+# bash
 curl -X PATCH http://localhost:8000/rear-diff/training/tt2759766/label \
   -H "Content-Type: application/json" \
   -d '{"imdb_id": "tt2759766", "label": "would_watch"}'
 ```
 ```powershell
+# powershell
 $body = @{
   imdb_id = "tt2759766"
   label = "would_watch"
@@ -256,46 +280,47 @@ Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766/label
 6. Kill any running instances that weren't terminated properly
 
 ```bash
+# bash
 pkill -9 python
 ````
 ```powershell
+# powershell
 Get-Process -Name python | Stop-Process -Force
 ```
 
-## Building and Running in Docker Locally
+## building and running in docker locally
 
-**Building the image**
+**building the image**
 ```bash
-# Regular build
+# regular build
 docker build -t rear-diff-image -f dockerfile .
 
-# Force rebuild without cache
+# force rebuild without cache
 docker build --no-cache -t rear-diff -f dockerfile .
 ```
 
-**Running the container**
+**running the container**
 ```bash
-# Run container in foreground
+# run container in foreground
 docker run -p 8000:8000 --name rear-diff-container --env-file .env rear-diff-image
 
-# Run container in background
+# run container in background
 docker run -d -p 8000:8000 --name rear-diff-container --env-file .env rear-diff-image
 ```
 
-**With Docker Compose**
+**with docker compose**
 ```bash
-# Build and start services
+# build and start services
 docker compose -f docker-compose.yaml up -d
 
-# Run in foreground
+# run in foreground
 docker compose -f docker-compose.yaml up
 
-# Build with no cache and start
+# build with no cache and start
 docker compose -f docker-compose.yaml build --no-cache
 docker compose -f docker-compose.yaml up
 
-
-# Stop services
+# stop services
 docker compose -f docker-compose.yaml down
 ```
 
@@ -314,22 +339,22 @@ docker image rmi rear-diff-image
 docker stop rear-diff-container && docker rm rear-diff-container && docker image rmi rear-diff-image
 ```
 
-**Troubleshooting**
+**troubleshooting**
 ```bash
-# View logs
+# view logs
 docker logs rear-diff-container
 
-# Shell into container
+# shell into container
 docker exec -it rear-diff-container bash
 
-# Check container status
+# check container status
 docker ps -a | grep rear-diff-container
 ```
 
-## Integration
+## integration
 
 This project will eventually be converted into a microservice to work alongside [automatic-transmission](https://github.com/x81k25/automatic-transmission) as an API bridge between the production database and the front-end layer 
 
-## License
+## license
 
 MIT License
