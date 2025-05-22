@@ -2,7 +2,7 @@
 
 The rear-differential API provides a link between the main database of the automatic-transmission platform and the front-end layer
 
-## Project Structure
+## project structure
 
 ```
 rear-differential/
@@ -26,7 +26,7 @@ rear-differential/
 └── requirements.txt            # Generated API dependencies
 ```
 
-### API Endpoints
+### API endpoints
 
 The API exposes the following endpoints:
 
@@ -213,9 +213,11 @@ uvicorn app.main:app --reload
 **Health check:**
 
 ```bash
+# bash
 curl http://localhost:8000/rear-diff/health
 ```
 ```powershell
+# powershell
 Invoke-RestMethod -Uri http://localhost:8000/rear-diff/health
 ```
 
