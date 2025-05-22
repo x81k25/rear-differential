@@ -221,39 +221,46 @@ Invoke-RestMethod -Uri http://localhost:8000/rear-diff/health
 
 **Get training data:**
 
+*Get all training data*
 ```bash
-# Get all training data
+# bash
 curl http://localhost:8000/rear-diff/training
 ```
 ```powershell
+# powershell
 Invoke-RestMethod -Uri http://localhost:8000/rear-diff/training
 ```
 
+*Get movies only*
 ```bash
-# Get movies only
+# bash
 curl "http://localhost:8000/rear-diff/training?media_type=movie&limit=10"
 ```
 ```powershell
+# powershell
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?media_type=movie&limit=10"
 ```
 
+*Get items with specific label*
 ```bash
-# Get items with specific label
+# bash
 curl "http://localhost:8000/rear-diff/training?label=would_watch&limit=25&sort_by=updated_at&sort_order=desc"
 ```
 ```powershell
+# powershell
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?label=would_watch&limit=25&sort_by=updated_at&sort_order=desc"
 ```
 
 **Update label:**
 
 ```bash
-# Update label to "would_watch"
+# bash
 curl -X PATCH http://localhost:8000/rear-diff/training/tt2759766/label \
   -H "Content-Type: application/json" \
   -d '{"imdb_id": "tt2759766", "label": "would_watch"}'
 ```
 ```powershell
+# powershell
 $body = @{
   imdb_id = "tt2759766"
   label = "would_watch"
@@ -271,46 +278,47 @@ Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766/label
 6. Kill any running instances that weren't terminated properly
 
 ```bash
+# bash
 pkill -9 python
 ````
 ```powershell
+# powershell
 Get-Process -Name python | Stop-Process -Force
 ```
 
-## Building and Running in Docker Locally
+## building and running in docker locally
 
-**Building the image**
+**building the image**
 ```bash
-# Regular build
+# regular build
 docker build -t rear-diff-image -f dockerfile .
 
-# Force rebuild without cache
+# force rebuild without cache
 docker build --no-cache -t rear-diff -f dockerfile .
 ```
 
-**Running the container**
+**running the container**
 ```bash
-# Run container in foreground
+# run container in foreground
 docker run -p 8000:8000 --name rear-diff-container --env-file .env rear-diff-image
 
-# Run container in background
+# run container in background
 docker run -d -p 8000:8000 --name rear-diff-container --env-file .env rear-diff-image
 ```
 
-**With Docker Compose**
+**with docker compose**
 ```bash
-# Build and start services
+# build and start services
 docker compose -f docker-compose.yaml up -d
 
-# Run in foreground
+# run in foreground
 docker compose -f docker-compose.yaml up
 
-# Build with no cache and start
+# build with no cache and start
 docker compose -f docker-compose.yaml build --no-cache
 docker compose -f docker-compose.yaml up
 
-
-# Stop services
+# stop services
 docker compose -f docker-compose.yaml down
 ```
 
@@ -329,22 +337,22 @@ docker image rmi rear-diff-image
 docker stop rear-diff-container && docker rm rear-diff-container && docker image rmi rear-diff-image
 ```
 
-**Troubleshooting**
+**troubleshooting**
 ```bash
-# View logs
+# view logs
 docker logs rear-diff-container
 
-# Shell into container
+# shell into container
 docker exec -it rear-diff-container bash
 
-# Check container status
+# check container status
 docker ps -a | grep rear-diff-container
 ```
 
-## Integration
+## integration
 
 This project will eventually be converted into a microservice to work alongside [automatic-transmission](https://github.com/x81k25/automatic-transmission) as an API bridge between the production database and the front-end layer 
 
-## License
+## license
 
 MIT License
