@@ -76,7 +76,10 @@ class DatabaseService:
                 # Validate sort_by to prevent SQL injection
                 valid_sort_fields = [
                     "created_at", "updated_at", "media_title", "release_year",
-                    "media_type", "label", "imdb_id", "tmdb_id"
+                    "media_type", "label", "imdb_id", "tmdb_id", "budget",
+                    "revenue", "runtime", "original_language", "tmdb_rating",
+                    "tmdb_votes", "rt_score", "metascore", "imdb_rating",
+                    "imdb_votes", "human_labeled", "anomalous"
                 ]
                 if sort_by not in valid_sort_fields:
                     sort_by = "created_at"
@@ -131,7 +134,7 @@ class DatabaseService:
 
     def update_label(self, imdb_id: str, label: str) -> Dict[str, Any]:
         """
-        Update the label for a training data entry.
+        Update the label for a training data entry and set human_labeled to True.
 
         Args:
             imdb_id: The IMDB ID of the media item
@@ -153,10 +156,10 @@ class DatabaseService:
                         "message": f"No training data found with IMDB ID: {imdb_id}"
                     }
 
-                # Update the label
+                # Update the label and set human_labeled to True
                 query = """
                     UPDATE atp.training
-                    SET label = %s, updated_at = NOW()
+                    SET label = %s, human_labeled = TRUE, updated_at = NOW()
                     WHERE imdb_id = %s
                 """
                 cursor.execute(query, (label, imdb_id))
