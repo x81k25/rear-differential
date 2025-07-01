@@ -15,9 +15,9 @@ class DatabaseService:
         self.connection_params = {
             'host': settings.REAR_DIFF_PGSQL_HOST,
             'port': settings.REAR_DIFF_PGSQL_PORT,
-            'user': settings.REAR_DIFF_PGSQL_USER,
+            'user': settings.REAR_DIFF_PGSQL_USERNAME,
             'password': settings.REAR_DIFF_PGSQL_PASSWORD,
-            'dbname': settings.REAR_DIFF_PGSQL_NAME
+            'dbname': settings.REAR_DIFF_PGSQL_DATABASE
         }
 
     def get_connection(self):
