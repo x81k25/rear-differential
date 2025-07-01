@@ -13,11 +13,11 @@ class DatabaseService:
     def __init__(self):
         """Initialize the database service."""
         self.connection_params = {
-            'host': settings.PGSQL_HOST,
-            'port': settings.PGSQL_PORT,
-            'user': settings.PGSQL_USER,
-            'password': settings.PGSQL_PASSWORD,
-            'dbname': settings.PGSQL_NAME
+            'host': settings.REAR_DIFF_PGSQL_HOST,
+            'port': settings.REAR_DIFF_PGSQL_PORT,
+            'user': settings.REAR_DIFF_PGSQL_USERNAME,
+            'password': settings.REAR_DIFF_PGSQL_PASSWORD,
+            'dbname': settings.REAR_DIFF_PGSQL_DATABASE
         }
 
     def get_connection(self):

@@ -12,11 +12,11 @@ class Settings(BaseSettings):
     API_PORT: int = Field(default=8000, description="Port to run the API server")
 
    # Database Configuration
-    PGSQL_HOST: str = Field(default="localhost", description="Database host")
-    PGSQL_PORT: int = Field(default=5432, description="Database port")
-    PGSQL_USER: str = Field(default="postgres", description="Database user")
-    PGSQL_PASSWORD: str = Field(description="Database password")
-    PGSQL_NAME: str = Field(default="postgres", description="Database name")
+    REAR_DIFF_PGSQL_HOST: str = Field(default="localhost", description="Database host")
+    REAR_DIFF_PGSQL_PORT: str = Field(default="5432", description="Database port")
+    REAR_DIFF_PGSQL_USERNAME: str = Field(default="postgres", description="Database user")
+    REAR_DIFF_PGSQL_PASSWORD: str = Field(description="Database password")
+    REAR_DIFF_PGSQL_DATABASE: str = Field(default="postgres", description="Database name")
 
     # Logging Configuration
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
