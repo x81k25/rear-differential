@@ -35,6 +35,9 @@ class DatabaseService:
     def get_training_data(self,
                  media_type: Optional[str] = None,
                  label: Optional[str] = None,
+                 reviewed: Optional[bool] = None,
+                 human_labeled: Optional[bool] = None,
+                 anomalous: Optional[bool] = None,
                  limit: int = 100,
                  offset: int = 0,
                  sort_by: str = "created_at",
@@ -45,6 +48,9 @@ class DatabaseService:
         Args:
             media_type: Optional filter by media type
             label: Optional filter by label
+            reviewed: Optional filter by reviewed status
+            human_labeled: Optional filter by human labeled status
+            anomalous: Optional filter by anomalous status
             limit: Maximum number of records to return
             offset: Number of records to skip
             sort_by: Field to sort by
@@ -69,6 +75,18 @@ class DatabaseService:
                     where_clauses.append("label = %s")
                     params.append(label)
 
+                if reviewed is not None:
+                    where_clauses.append("reviewed = %s")
+                    params.append(reviewed)
+
+                if human_labeled is not None:
+                    where_clauses.append("human_labeled = %s")
+                    params.append(human_labeled)
+
+                if anomalous is not None:
+                    where_clauses.append("anomalous = %s")
+                    params.append(anomalous)
+
                 where_clause = " AND ".join(where_clauses)
                 if where_clause:
                     where_clause = "WHERE " + where_clause
@@ -79,7 +97,7 @@ class DatabaseService:
                     "media_type", "label", "imdb_id", "tmdb_id", "budget",
                     "revenue", "runtime", "original_language", "tmdb_rating",
                     "tmdb_votes", "rt_score", "metascore", "imdb_rating",
-                    "imdb_votes", "human_labeled", "anomalous"
+                    "imdb_votes", "human_labeled", "anomalous", "reviewed"
                 ]
                 if sort_by not in valid_sort_fields:
                     sort_by = "created_at"
@@ -156,10 +174,10 @@ class DatabaseService:
                         "message": f"No training data found with IMDB ID: {imdb_id}"
                     }
 
-                # Update the label and set human_labeled to True
+                # Update the label and set human_labeled and reviewed to True
                 query = """
                     UPDATE atp.training
-                    SET label = %s, human_labeled = TRUE, updated_at = NOW()
+                    SET label = %s, human_labeled = TRUE, reviewed = TRUE, updated_at = NOW()
                     WHERE imdb_id = %s
                 """
                 cursor.execute(query, (label, imdb_id))
@@ -174,6 +192,56 @@ class DatabaseService:
             if conn:
                 conn.rollback()
             logger.error(f"Error updating label: {e}")
+            return {
+                "success": False,
+                "error": "Database error",
+                "message": str(e)
+            }
+        finally:
+            if conn:
+                conn.close()
+
+    def update_reviewed(self, imdb_id: str) -> Dict[str, Any]:
+        """
+        Update the reviewed status for a training data entry to True.
+
+        Args:
+            imdb_id: The IMDB ID of the media item
+
+        Returns:
+            Dictionary with success status and message
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # Check if the training data entry exists
+                cursor.execute("SELECT 1 FROM atp.training WHERE imdb_id = %s", (imdb_id,))
+                if cursor.fetchone() is None:
+                    return {
+                        "success": False,
+                        "error": "Training data not found",
+                        "message": f"No training data found with IMDB ID: {imdb_id}"
+                    }
+
+                # Update the reviewed status to True
+                query = """
+                    UPDATE atp.training
+                    SET reviewed = TRUE, updated_at = NOW()
+                    WHERE imdb_id = %s
+                """
+                cursor.execute(query, (imdb_id,))
+                conn.commit()
+
+                return {
+                    "success": True,
+                    "message": "Reviewed status updated successfully"
+                }
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Error updating reviewed status: {e}")
             return {
                 "success": False,
                 "error": "Database error",
