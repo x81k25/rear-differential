@@ -1,7 +1,7 @@
 # app/routers/training.py
 from fastapi import APIRouter, HTTPException, Query, Path
 from typing import Optional
-from app.models.api import TrainingListResponse, LabelUpdateRequest, LabelUpdateResponse, MediaType, LabelType
+from app.models.api import TrainingListResponse, LabelUpdateRequest, LabelUpdateResponse, ReviewedUpdateRequest, ReviewedUpdateResponse, MediaType, LabelType
 from app.services.db_service import DatabaseService
 
 def get_router():
@@ -12,6 +12,9 @@ def get_router():
     async def get_training_data(
         media_type: Optional[MediaType] = Query(None, description="Filter by media type"),
         label: Optional[LabelType] = Query(None, description="Filter by label"),
+        reviewed: Optional[bool] = Query(None, description="Filter by reviewed status"),
+        human_labeled: Optional[bool] = Query(None, description="Filter by human labeled status"),
+        anomalous: Optional[bool] = Query(None, description="Filter by anomalous status"),
         limit: int = Query(100, description="Maximum number of records to return"),
         offset: int = Query(0, description="Number of records to skip"),
         sort_by: str = Query("created_at", description="Field to sort results by"),
@@ -24,6 +27,9 @@ def get_router():
             result = db_service.get_training_data(
                 media_type=media_type.value if media_type else None,
                 label=label.value if label else None,
+                reviewed=reviewed,
+                human_labeled=human_labeled,
+                anomalous=anomalous,
                 limit=limit,
                 offset=offset,
                 sort_by=sort_by,
@@ -53,6 +59,29 @@ def get_router():
             }
 
         result = db_service.update_label(imdb_id, request.label.value)
+        if not result.get("success", False):
+            status_code = 404 if result.get("error") == "Training data not found" else 500
+            return result
+
+        return result
+
+    @router.patch("/{imdb_id}/reviewed", response_model=ReviewedUpdateResponse)
+    async def update_reviewed(
+        imdb_id: str = Path(..., description="The IMDB ID of the media item (format: tt followed by 7-8 digits)"),
+        request: ReviewedUpdateRequest = None
+    ):
+        """
+        Update the reviewed status for a specific training data entry.
+        """
+        # Validate that path imdb_id matches request body imdb_id
+        if request.imdb_id != imdb_id:
+            return {
+                "success": False,
+                "error": "IMDB ID mismatch",
+                "message": "Path IMDB ID and body IMDB ID do not match"
+            }
+
+        result = db_service.update_reviewed(imdb_id)
         if not result.get("success", False):
             status_code = 404 if result.get("error") == "Training data not found" else 500
             return result

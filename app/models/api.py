@@ -66,6 +66,7 @@ class TrainingResponseModel(BaseModel):
     # Flag columns
     human_labeled: Optional[bool] = None
     anomalous: Optional[bool] = None
+    reviewed: Optional[bool] = None
 
     # Timestamps
     created_at: datetime
@@ -183,6 +184,22 @@ class LabelUpdateRequest(BaseModel):
 
 class LabelUpdateResponse(BaseModel):
     """Response model for updating label."""
+    success: bool
+    message: str
+    error: Optional[str] = None
+
+class ReviewedUpdateRequest(BaseModel):
+    """Request model for updating reviewed status."""
+    imdb_id: str
+
+    @validator('imdb_id')
+    def validate_imdb_id(cls, v):
+        if not re.match(r'^tt[0-9]{7,8}$', v):
+            raise ValueError('IMDB ID must match format tt followed by 7-8 digits')
+        return v
+
+class ReviewedUpdateResponse(BaseModel):
+    """Response model for updating reviewed status."""
     success: bool
     message: str
     error: Optional[str] = None
