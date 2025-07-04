@@ -156,6 +156,8 @@ class DatabaseService:
                       rejection_status: Optional[str] = None,
                       error_status: Optional[bool] = None,
                       imdb_id: Optional[str] = None,
+                      media_title: Optional[str] = None,
+                      hash: Optional[str] = None,
                       limit: int = 100,
                       offset: int = 0,
                       sort_by: str = "created_at",
@@ -169,6 +171,8 @@ class DatabaseService:
             rejection_status: Optional filter by rejection status
             error_status: Optional filter by error status
             imdb_id: Optional filter by specific IMDB ID
+            media_title: Optional search by media title (case-insensitive partial match)
+            hash: Optional filter by specific hash
             limit: Maximum number of results to return
             offset: Number of results to skip
             sort_by: Column to sort by
@@ -204,6 +208,14 @@ class DatabaseService:
                 if imdb_id:
                     where_conditions.append("imdb_id = %s")
                     params.append(imdb_id)
+                
+                if media_title:
+                    where_conditions.append("media_title ILIKE %s")
+                    params.append(f"%{media_title}%")
+                
+                if hash:
+                    where_conditions.append("hash = %s")
+                    params.append(hash)
                 
                 where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
                 

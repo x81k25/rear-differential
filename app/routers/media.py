@@ -22,6 +22,8 @@ def get_router():
         rejection_status: Optional[RejectionStatus] = None,
         error_status: Optional[bool] = None,
         imdb_id: Optional[str] = None,
+        media_title: Optional[str] = None,
+        hash: Optional[str] = None,
         sort_by: str = Query("created_at", regex="^(created_at|updated_at|release_year|media_title|imdb_rating)$"),
         sort_order: str = Query("desc", regex="^(asc|desc)$")
     ):
@@ -36,6 +38,8 @@ def get_router():
         - rejection_status: Filter by rejection status
         - error_status: Filter by error status
         - imdb_id: Filter by specific IMDB ID
+        - media_title: Search by media title (case-insensitive partial match)
+        - hash: Filter by specific hash
         - sort_by: Field to sort by
         - sort_order: Sort direction (asc/desc)
         """
@@ -51,6 +55,8 @@ def get_router():
                 rejection_status=rejection_status,
                 error_status=error_status,
                 imdb_id=imdb_id,
+                media_title=media_title,
+                hash=hash,
                 sort_by=sort_by,
                 sort_order=sort_order
             )
