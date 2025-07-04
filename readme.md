@@ -32,7 +32,10 @@ The API exposes the following endpoints:
 
 - `GET /rear-diff/health` - Health check endpoint
 - `GET /rear-diff/training` - Retrieves training data entries from the database
-- `PATCH /rear-diff/training/{imdb_id}/label` - Updates the label for a specific training data entry
+- `PATCH /rear-diff/training/{imdb_id}/label` - Updates the label for a specific training data entry (sets human_labeled and reviewed to true)
+- `PATCH /rear-diff/training/{imdb_id}/reviewed` - Sets the reviewed status to true for a specific training data entry
+- `GET /rear-diff/media/` - Retrieves media data entries from the database
+- `GET /rear-diff/flyway` - Retrieves flyway schema history records
 
 ### GET /rear-diff/training
 
@@ -48,6 +51,9 @@ Retrieves training data entries from the database.
 
 - `media_type`: Filter by media type (e.g., "movie", "tv_show", "tv_season")
 - `label`: Filter by label (e.g., "would_watch", "would_not_watch")
+- `reviewed`: Filter by reviewed status (boolean: true/false)
+- `human_labeled`: Filter by human labeled status (boolean: true/false)
+- `anomalous`: Filter by anomalous status (boolean: true/false)
 - `limit`: Maximum number of records to return (default: 100)
 - `offset`: Number of records to skip (for pagination)
 - `sort_by`: Field to sort results by (default: "created_at")
@@ -89,6 +95,7 @@ Retrieves training data entries from the database.
       "imdb_rating": 5.7,
       "imdb_votes": 6467,
       "human_labeled": null,
+      "reviewed": null,
       "anomalous": null,
       "created_at": "2025-05-21T02:27:51.094287Z",
       "updated_at": "2025-05-21T02:27:51.094287Z"
@@ -115,9 +122,9 @@ Retrieves training data entries from the database.
 
 ### PATCH /rear-diff/training/{imdb_id}/label
 
-Updates the label for a specific training data entry.
+Updates the label for a specific training data entry and sets human_labeled and reviewed to true.
 
-**Description**: This endpoint allows users to update the label column in the database for a training data entry identified by its IMDB ID.
+**Description**: This endpoint allows users to update the label column in the database for a training data entry identified by its IMDB ID. Additionally, it automatically sets both human_labeled and reviewed columns to true.
 
 **HTTP Method**: PATCH
 
@@ -193,6 +200,193 @@ Updates the label for a specific training data entry.
 }
 ```
 
+### PATCH /rear-diff/training/{imdb_id}/reviewed
+
+Sets the reviewed status to true for a specific training data entry.
+
+**Description**: This endpoint allows users to update only the reviewed column to true in the database for a training data entry identified by its IMDB ID.
+
+**HTTP Method**: PATCH
+
+**Path Parameters**:
+
+- `imdb_id`: The unique identifier (format: tt followed by 7-8 digits) of the training data entry to update
+
+**Request Body**:
+
+```json
+{
+  "imdb_id": "tt2759766"
+}
+```
+
+**Required Fields**:
+
+- `imdb_id`: String - The IMDB ID of the training data entry (must match the imdb_id in the URL path)
+
+**Responses**:
+
+**Success Response (200 OK)**:
+
+```json
+{
+  "success": true,
+  "message": "Reviewed status updated successfully"
+}
+```
+
+**Error Responses**:
+
+**400 Bad Request (IMDB ID Mismatch)**:
+
+```json
+{
+  "success": false,
+  "error": "IMDB ID mismatch",
+  "message": "Path IMDB ID and body IMDB ID do not match"
+}
+```
+
+**404 Not Found**:
+
+```json
+{
+  "success": false,
+  "error": "Training data not found",
+  "message": "No training data found with IMDB ID: tt2759766"
+}
+```
+
+**500 Internal Server Error**:
+
+```json
+{
+  "success": false,
+  "error": "Database error",
+  "message": "Error details here"
+}
+```
+
+### GET /rear-diff/media/
+
+Retrieves media data entries from the database.
+
+**Description**: This endpoint returns a collection of media data entries from the atp.media table with support for filtering, pagination, and sorting.
+
+**HTTP Method**: GET
+
+**Parameters**: No required parameters for basic retrieval of all items.
+
+**Optional Query Parameters**:
+
+- `media_type`: Filter by media type (e.g., "movie", "tv_show", "tv_season")
+- `pipeline_status`: Filter by pipeline status
+- `rejection_status`: Filter by rejection status
+- `error_status`: Filter by error status (boolean: true/false)
+- `imdb_id`: Filter by specific IMDB ID
+- `limit`: Maximum number of records to return (1-1000, default: 100)
+- `offset`: Number of records to skip (for pagination)
+- `sort_by`: Field to sort results by (created_at, updated_at, release_year, media_title, imdb_rating)
+- `sort_order`: Direction of sort ("asc" or "desc", default: "desc")
+
+**Response**:
+
+**Success Response (200 OK)**:
+
+```json
+{
+  "data": [
+    {
+      "imdb_id": "tt1234567",
+      "media_type": "movie",
+      "media_title": "Example Movie",
+      "release_year": 2024,
+      "imdb_rating": 7.5,
+      "pipeline_status": "completed",
+      "rejection_status": null,
+      "error_status": false,
+      "created_at": "2025-05-21T02:27:51.094287Z",
+      "updated_at": "2025-05-21T02:27:51.094287Z"
+    }
+  ],
+  "pagination": {
+    "total": 5432,
+    "limit": 100,
+    "offset": 0,
+    "next": "/rear-diff/media/?offset=100&limit=100",
+    "previous": null
+  }
+}
+```
+
+**Error Response (500 Internal Server Error)**:
+
+```json
+{
+  "error": "Database error occurred",
+  "details": "Error details here"
+}
+```
+
+### GET /rear-diff/flyway
+
+Retrieves flyway schema history records from the database.
+
+**Description**: This endpoint returns all records from the flyway_schema_history table, showing the migration history of database schema changes.
+
+**HTTP Method**: GET
+
+**Parameters**: No required parameters for basic retrieval of all records.
+
+**Optional Query Parameters**:
+
+- `sort_by`: Field to sort results by (installed_rank, installed_on, version) - defaults to "installed_rank"
+- `sort_order`: Direction of sort ("asc" or "desc") - defaults to "asc"
+
+**Response**:
+
+**Success Response (200 OK)**:
+
+```json
+{
+  "data": [
+    {
+      "installed_rank": 1,
+      "version": "1.0.0",
+      "description": "Initial schema",
+      "type": "SQL",
+      "script": "V1_0_0__Initial_schema.sql",
+      "checksum": 1234567890,
+      "installed_by": "flyway",
+      "installed_on": "2025-01-01T10:00:00Z",
+      "execution_time": 1500,
+      "success": true
+    },
+    {
+      "installed_rank": 2,
+      "version": "1.1.0",
+      "description": "Add media table",
+      "type": "SQL",
+      "script": "V1_1_0__Add_media_table.sql",
+      "checksum": 1234567891,
+      "installed_by": "flyway",
+      "installed_on": "2025-01-02T10:00:00Z",
+      "execution_time": 800,
+      "success": true
+    }
+  ]
+}
+```
+
+**Error Response (500 Internal Server Error)**:
+
+```json
+{
+  "error": "Database error occurred",
+  "details": "Error details here"
+}
+```
+
 ## Testing the API Locally
 
 To test the Rear Differential API locally before containerization:
@@ -253,6 +447,18 @@ curl "http://localhost:8000/rear-diff/training?label=would_watch&limit=25&sort_b
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?label=would_watch&limit=25&sort_by=updated_at&sort_order=desc"
 ```
 
+*Get items with boolean filters*
+```bash
+# bash
+curl "http://localhost:8000/rear-diff/training?reviewed=false&human_labeled=true&limit=10"
+curl "http://localhost:8000/rear-diff/training?anomalous=false&limit=10"
+```
+```powershell
+# powershell
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?reviewed=false&human_labeled=true&limit=10"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?anomalous=false&limit=10"
+```
+
 **Update label:**
 
 ```bash
@@ -269,6 +475,53 @@ $body = @{
 }
 $json = ConvertTo-Json $body
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766/label" -Method Patch -Body $json -ContentType "application/json"
+```
+
+**Update reviewed status:**
+
+```bash
+# bash
+curl -X PATCH http://localhost:8000/rear-diff/training/tt2759766/reviewed \
+  -H "Content-Type: application/json" \
+  -d '{"imdb_id": "tt2759766"}'
+```
+```powershell
+# powershell
+$body = @{
+  imdb_id = "tt2759766"
+}
+$json = ConvertTo-Json $body
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766/reviewed" -Method Patch -Body $json -ContentType "application/json"
+```
+
+**Get media data:**
+
+```bash
+# bash
+curl "http://localhost:8000/rear-diff/media/?limit=10"
+curl "http://localhost:8000/rear-diff/media/?media_type=movie&limit=5"
+curl "http://localhost:8000/rear-diff/media/?sort_by=updated_at&sort_order=desc&limit=5"
+```
+```powershell
+# powershell
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/media/?limit=10"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/media/?media_type=movie&limit=5"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/media/?sort_by=updated_at&sort_order=desc&limit=5"
+```
+
+**Get flyway schema history:**
+
+```bash
+# bash
+curl "http://localhost:8000/rear-diff/flyway"
+curl "http://localhost:8000/rear-diff/flyway?sort_by=installed_on&sort_order=desc"
+curl "http://localhost:8000/rear-diff/flyway?sort_by=version&sort_order=asc"
+```
+```powershell
+# powershell
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/flyway"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/flyway?sort_by=installed_on&sort_order=desc"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/flyway?sort_by=version&sort_order=asc"
 ```
 
 4. Access the interactive API documentation at http://localhost:8000/rear-diff/docs
