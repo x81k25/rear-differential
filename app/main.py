@@ -109,8 +109,8 @@ db_service = DatabaseService()
 
 @root_router.get("/flyway", response_model=FlywayHistoryResponse, tags=["flyway"])
 async def get_flyway_history(
-    sort_by: str = Query("installed_rank", regex="^(installed_rank|installed_on|version)$"),
-    sort_order: str = Query("asc", regex="^(asc|desc)$")
+    sort_by: str = Query("installed_rank", pattern="^(installed_rank|installed_on|version)$"),
+    sort_order: str = Query("asc", pattern="^(asc|desc)$")
 ):
     """
     Get all records from flyway_schema_history table.
