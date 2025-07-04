@@ -43,7 +43,7 @@ def get_router():
             logger.info(f"Fetching media data with limit={limit}, offset={offset}")
             
             # Call the database service to get media data
-            result = await db_service.get_media_data(
+            result = db_service.get_media_data(
                 limit=limit,
                 offset=offset,
                 media_type=media_type,
