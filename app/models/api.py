@@ -15,6 +15,22 @@ class LabelType(str, Enum):
     WOULD_WATCH = "would_watch"
     WOULD_NOT_WATCH = "would_not_watch"
 
+class PipelineStatus(str, Enum):
+    INGESTED = "ingested"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class RejectionStatus(str, Enum):
+    UNFILTERED = "unfiltered"
+    FILTERED = "filtered"
+    REJECTED = "rejected"
+
+class RssSource(str, Enum):
+    RSS1 = "rss1"
+    RSS2 = "rss2"
+    RSS3 = "rss3"
+
 class TrainingResponseModel(BaseModel):
     """Model for training data response."""
     # Identifier columns
@@ -203,3 +219,141 @@ class ReviewedUpdateResponse(BaseModel):
     success: bool
     message: str
     error: Optional[str] = None
+
+class MediaResponseModel(BaseModel):
+    """Model for media data response."""
+    # Primary key
+    hash: str
+    
+    # Media identifying information
+    media_type: MediaType
+    media_title: Optional[str] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    release_year: Optional[int] = None
+    
+    # Status fields
+    pipeline_status: PipelineStatus
+    error_status: bool
+    error_condition: Optional[str] = None
+    rejection_status: RejectionStatus
+    rejection_reason: Optional[str] = None
+    
+    # Path information
+    parent_path: Optional[str] = None
+    target_path: Optional[str] = None
+    original_title: str
+    original_path: Optional[str] = None
+    original_link: Optional[str] = None
+    
+    # Source information
+    rss_source: Optional[RssSource] = None
+    uploader: Optional[str] = None
+    
+    # External IDs
+    imdb_id: Optional[str] = None
+    tmdb_id: Optional[int] = None
+    
+    # Financial data
+    budget: Optional[int] = None
+    revenue: Optional[int] = None
+    runtime: Optional[int] = None
+    
+    # Country and production information
+    origin_country: Optional[List[str]] = None
+    production_companies: Optional[List[str]] = None
+    production_countries: Optional[List[str]] = None
+    production_status: Optional[str] = None
+    
+    # Language information
+    original_language: Optional[str] = None
+    spoken_languages: Optional[List[str]] = None
+    
+    # Content information
+    genre: Optional[List[str]] = None
+    original_media_title: Optional[str] = None
+    tagline: Optional[str] = None
+    overview: Optional[str] = None
+    
+    # Ratings
+    tmdb_rating: Optional[Decimal] = None
+    tmdb_votes: Optional[int] = None
+    rt_score: Optional[int] = None
+    metascore: Optional[int] = None
+    imdb_rating: Optional[Decimal] = None
+    imdb_votes: Optional[int] = None
+    
+    # Technical information
+    resolution: Optional[str] = None
+    video_codec: Optional[str] = None
+    upload_type: Optional[str] = None
+    audio_codec: Optional[str] = None
+    
+    # Timestamps
+    created_at: datetime
+    updated_at: datetime
+
+    @validator('hash')
+    def validate_hash(cls, v):
+        if not re.match(r'^[a-f0-9]{40}$', v):
+            raise ValueError('Hash must be exactly 40 hex characters')
+        return v
+
+    @validator('imdb_id')
+    def validate_imdb_id(cls, v):
+        if v is not None and not re.match(r'^tt[0-9]{7,8}$', v):
+            raise ValueError('IMDB ID must match format tt followed by 7-8 digits')
+        return v
+
+    @validator('tmdb_id')
+    def validate_tmdb_id(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('TMDB ID must be greater than 0')
+        return v
+
+    @validator('release_year')
+    def validate_release_year(cls, v):
+        if v is not None and (v < 1850 or v > 2100):
+            raise ValueError('Release year must be between 1850 and 2100')
+        return v
+
+    @validator('budget', 'revenue')
+    def validate_non_negative(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('Value must be non-negative')
+        return v
+
+    @validator('runtime')
+    def validate_runtime(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('Runtime must be non-negative')
+        return v
+
+    @validator('tmdb_rating')
+    def validate_tmdb_rating(cls, v):
+        if v is not None and (v < 0 or v > 10):
+            raise ValueError('TMDB rating must be between 0 and 10')
+        return v
+
+    @validator('rt_score', 'metascore')
+    def validate_percentage_scores(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError('Score must be between 0 and 100')
+        return v
+
+    @validator('imdb_rating')
+    def validate_imdb_rating(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError('IMDB rating must be between 0 and 100')
+        return v
+
+    @validator('tmdb_votes', 'imdb_votes')
+    def validate_votes(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('Votes must be non-negative')
+        return v
+
+class MediaListResponse(BaseModel):
+    """Response model for the media listing endpoint."""
+    data: List[MediaResponseModel]
+    pagination: Dict[str, Any]

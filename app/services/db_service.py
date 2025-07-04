@@ -150,6 +150,128 @@ class DatabaseService:
             if conn:
                 conn.close()
 
+    def get_media_data(self,
+                      media_type: Optional[str] = None,
+                      pipeline_status: Optional[str] = None,
+                      rejection_status: Optional[str] = None,
+                      error_status: Optional[bool] = None,
+                      imdb_id: Optional[str] = None,
+                      limit: int = 100,
+                      offset: int = 0,
+                      sort_by: str = "created_at",
+                      sort_order: str = "desc") -> Dict[str, Any]:
+        """
+        Get media data from atp.media table with optional filtering.
+
+        Args:
+            media_type: Optional filter by media type
+            pipeline_status: Optional filter by pipeline status
+            rejection_status: Optional filter by rejection status
+            error_status: Optional filter by error status
+            imdb_id: Optional filter by specific IMDB ID
+            limit: Maximum number of results to return
+            offset: Number of results to skip
+            sort_by: Column to sort by
+            sort_order: Sort order (asc/desc)
+
+        Returns:
+            Dictionary containing media data and pagination info
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Build the WHERE clause
+                where_conditions = []
+                params = []
+                
+                if media_type:
+                    where_conditions.append("media_type = %s")
+                    params.append(media_type)
+                
+                if pipeline_status:
+                    where_conditions.append("pipeline_status = %s")
+                    params.append(pipeline_status)
+                
+                if rejection_status:
+                    where_conditions.append("rejection_status = %s")
+                    params.append(rejection_status)
+                
+                if error_status is not None:
+                    where_conditions.append("error_status = %s")
+                    params.append(error_status)
+                
+                if imdb_id:
+                    where_conditions.append("imdb_id = %s")
+                    params.append(imdb_id)
+                
+                where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+                
+                # Count total records
+                count_query = f"SELECT COUNT(*) FROM atp.media WHERE {where_clause}"
+                cursor.execute(count_query, params)
+                total_count = cursor.fetchone()['count']
+                
+                # Build the main query
+                query = f"""
+                    SELECT 
+                        hash, media_type, media_title, season, episode, release_year,
+                        pipeline_status, error_status, error_condition, rejection_status, rejection_reason,
+                        parent_path, target_path, original_title, original_path, original_link,
+                        rss_source, uploader, imdb_id, tmdb_id,
+                        budget, revenue, runtime,
+                        origin_country, production_companies, production_countries, production_status,
+                        original_language, spoken_languages,
+                        genre, original_media_title, tagline, overview,
+                        tmdb_rating, tmdb_votes, rt_score, metascore, imdb_rating, imdb_votes,
+                        resolution, video_codec, upload_type, audio_codec,
+                        created_at, updated_at
+                    FROM atp.media
+                    WHERE {where_clause}
+                    ORDER BY {sort_by} {sort_order}
+                    LIMIT %s OFFSET %s
+                """
+                
+                params.extend([limit, offset])
+                cursor.execute(query, params)
+                
+                # Fetch all results
+                media_data = cursor.fetchall()
+                
+                # Convert to list of dicts and handle any necessary data conversions
+                result_data = []
+                for row in media_data:
+                    # Convert row to dict (already done by RealDictCursor)
+                    row_dict = dict(row)
+                    
+                    # Ensure datetime objects are properly serialized
+                    if row_dict.get('created_at'):
+                        row_dict['created_at'] = row_dict['created_at'].isoformat()
+                    if row_dict.get('updated_at'):
+                        row_dict['updated_at'] = row_dict['updated_at'].isoformat()
+                    
+                    result_data.append(row_dict)
+                
+                # Prepare pagination info
+                pagination = {
+                    "total": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": (offset + limit) < total_count
+                }
+                
+                return {
+                    "data": result_data,
+                    "pagination": pagination
+                }
+                
+        except Exception as e:
+            logger.error(f"Error fetching media data: {e}")
+            raise
+        finally:
+            if conn:
+                conn.close()
+
     def update_label(self, imdb_id: str, label: str) -> Dict[str, Any]:
         """
         Update the label for a training data entry and set human_labeled to True.
@@ -201,6 +323,128 @@ class DatabaseService:
             if conn:
                 conn.close()
 
+    def get_media_data(self,
+                      media_type: Optional[str] = None,
+                      pipeline_status: Optional[str] = None,
+                      rejection_status: Optional[str] = None,
+                      error_status: Optional[bool] = None,
+                      imdb_id: Optional[str] = None,
+                      limit: int = 100,
+                      offset: int = 0,
+                      sort_by: str = "created_at",
+                      sort_order: str = "desc") -> Dict[str, Any]:
+        """
+        Get media data from atp.media table with optional filtering.
+
+        Args:
+            media_type: Optional filter by media type
+            pipeline_status: Optional filter by pipeline status
+            rejection_status: Optional filter by rejection status
+            error_status: Optional filter by error status
+            imdb_id: Optional filter by specific IMDB ID
+            limit: Maximum number of results to return
+            offset: Number of results to skip
+            sort_by: Column to sort by
+            sort_order: Sort order (asc/desc)
+
+        Returns:
+            Dictionary containing media data and pagination info
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Build the WHERE clause
+                where_conditions = []
+                params = []
+                
+                if media_type:
+                    where_conditions.append("media_type = %s")
+                    params.append(media_type)
+                
+                if pipeline_status:
+                    where_conditions.append("pipeline_status = %s")
+                    params.append(pipeline_status)
+                
+                if rejection_status:
+                    where_conditions.append("rejection_status = %s")
+                    params.append(rejection_status)
+                
+                if error_status is not None:
+                    where_conditions.append("error_status = %s")
+                    params.append(error_status)
+                
+                if imdb_id:
+                    where_conditions.append("imdb_id = %s")
+                    params.append(imdb_id)
+                
+                where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+                
+                # Count total records
+                count_query = f"SELECT COUNT(*) FROM atp.media WHERE {where_clause}"
+                cursor.execute(count_query, params)
+                total_count = cursor.fetchone()['count']
+                
+                # Build the main query
+                query = f"""
+                    SELECT 
+                        hash, media_type, media_title, season, episode, release_year,
+                        pipeline_status, error_status, error_condition, rejection_status, rejection_reason,
+                        parent_path, target_path, original_title, original_path, original_link,
+                        rss_source, uploader, imdb_id, tmdb_id,
+                        budget, revenue, runtime,
+                        origin_country, production_companies, production_countries, production_status,
+                        original_language, spoken_languages,
+                        genre, original_media_title, tagline, overview,
+                        tmdb_rating, tmdb_votes, rt_score, metascore, imdb_rating, imdb_votes,
+                        resolution, video_codec, upload_type, audio_codec,
+                        created_at, updated_at
+                    FROM atp.media
+                    WHERE {where_clause}
+                    ORDER BY {sort_by} {sort_order}
+                    LIMIT %s OFFSET %s
+                """
+                
+                params.extend([limit, offset])
+                cursor.execute(query, params)
+                
+                # Fetch all results
+                media_data = cursor.fetchall()
+                
+                # Convert to list of dicts and handle any necessary data conversions
+                result_data = []
+                for row in media_data:
+                    # Convert row to dict (already done by RealDictCursor)
+                    row_dict = dict(row)
+                    
+                    # Ensure datetime objects are properly serialized
+                    if row_dict.get('created_at'):
+                        row_dict['created_at'] = row_dict['created_at'].isoformat()
+                    if row_dict.get('updated_at'):
+                        row_dict['updated_at'] = row_dict['updated_at'].isoformat()
+                    
+                    result_data.append(row_dict)
+                
+                # Prepare pagination info
+                pagination = {
+                    "total": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": (offset + limit) < total_count
+                }
+                
+                return {
+                    "data": result_data,
+                    "pagination": pagination
+                }
+                
+        except Exception as e:
+            logger.error(f"Error fetching media data: {e}")
+            raise
+        finally:
+            if conn:
+                conn.close()
+
     def update_reviewed(self, imdb_id: str) -> Dict[str, Any]:
         """
         Update the reviewed status for a training data entry to True.
@@ -247,6 +491,128 @@ class DatabaseService:
                 "error": "Database error",
                 "message": str(e)
             }
+        finally:
+            if conn:
+                conn.close()
+
+    def get_media_data(self,
+                      media_type: Optional[str] = None,
+                      pipeline_status: Optional[str] = None,
+                      rejection_status: Optional[str] = None,
+                      error_status: Optional[bool] = None,
+                      imdb_id: Optional[str] = None,
+                      limit: int = 100,
+                      offset: int = 0,
+                      sort_by: str = "created_at",
+                      sort_order: str = "desc") -> Dict[str, Any]:
+        """
+        Get media data from atp.media table with optional filtering.
+
+        Args:
+            media_type: Optional filter by media type
+            pipeline_status: Optional filter by pipeline status
+            rejection_status: Optional filter by rejection status
+            error_status: Optional filter by error status
+            imdb_id: Optional filter by specific IMDB ID
+            limit: Maximum number of results to return
+            offset: Number of results to skip
+            sort_by: Column to sort by
+            sort_order: Sort order (asc/desc)
+
+        Returns:
+            Dictionary containing media data and pagination info
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Build the WHERE clause
+                where_conditions = []
+                params = []
+                
+                if media_type:
+                    where_conditions.append("media_type = %s")
+                    params.append(media_type)
+                
+                if pipeline_status:
+                    where_conditions.append("pipeline_status = %s")
+                    params.append(pipeline_status)
+                
+                if rejection_status:
+                    where_conditions.append("rejection_status = %s")
+                    params.append(rejection_status)
+                
+                if error_status is not None:
+                    where_conditions.append("error_status = %s")
+                    params.append(error_status)
+                
+                if imdb_id:
+                    where_conditions.append("imdb_id = %s")
+                    params.append(imdb_id)
+                
+                where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+                
+                # Count total records
+                count_query = f"SELECT COUNT(*) FROM atp.media WHERE {where_clause}"
+                cursor.execute(count_query, params)
+                total_count = cursor.fetchone()['count']
+                
+                # Build the main query
+                query = f"""
+                    SELECT 
+                        hash, media_type, media_title, season, episode, release_year,
+                        pipeline_status, error_status, error_condition, rejection_status, rejection_reason,
+                        parent_path, target_path, original_title, original_path, original_link,
+                        rss_source, uploader, imdb_id, tmdb_id,
+                        budget, revenue, runtime,
+                        origin_country, production_companies, production_countries, production_status,
+                        original_language, spoken_languages,
+                        genre, original_media_title, tagline, overview,
+                        tmdb_rating, tmdb_votes, rt_score, metascore, imdb_rating, imdb_votes,
+                        resolution, video_codec, upload_type, audio_codec,
+                        created_at, updated_at
+                    FROM atp.media
+                    WHERE {where_clause}
+                    ORDER BY {sort_by} {sort_order}
+                    LIMIT %s OFFSET %s
+                """
+                
+                params.extend([limit, offset])
+                cursor.execute(query, params)
+                
+                # Fetch all results
+                media_data = cursor.fetchall()
+                
+                # Convert to list of dicts and handle any necessary data conversions
+                result_data = []
+                for row in media_data:
+                    # Convert row to dict (already done by RealDictCursor)
+                    row_dict = dict(row)
+                    
+                    # Ensure datetime objects are properly serialized
+                    if row_dict.get('created_at'):
+                        row_dict['created_at'] = row_dict['created_at'].isoformat()
+                    if row_dict.get('updated_at'):
+                        row_dict['updated_at'] = row_dict['updated_at'].isoformat()
+                    
+                    result_data.append(row_dict)
+                
+                # Prepare pagination info
+                pagination = {
+                    "total": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": (offset + limit) < total_count
+                }
+                
+                return {
+                    "data": result_data,
+                    "pagination": pagination
+                }
+                
+        except Exception as e:
+            logger.error(f"Error fetching media data: {e}")
+            raise
         finally:
             if conn:
                 conn.close()
