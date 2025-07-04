@@ -373,6 +373,32 @@ class DatabaseService:
             if conn:
                 conn.close()
 
+    def get_public_tables(self) -> List[Dict[str, Any]]:
+        """
+        Get all tables in public schema.
+
+        Returns:
+            List of table names in public schema
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public'
+                    ORDER BY table_name
+                """)
+                return cursor.fetchall()
+
+        except Exception as e:
+            logger.error(f"Error fetching public tables: {e}")
+            raise
+        finally:
+            if conn:
+                conn.close()
+
     def get_flyway_schema_history(self) -> List[Dict[str, Any]]:
         """
         Get all records from flyway_schema_history table.

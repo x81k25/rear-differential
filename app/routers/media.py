@@ -83,4 +83,25 @@ def get_router():
             logger.error(f"Error fetching flyway history: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch flyway history: {str(e)}")
 
+    @router.get("/public-tables")
+    async def get_public_tables():
+        """
+        Get all tables in public schema for debugging.
+        
+        Returns:
+            List of all tables in public schema
+        """
+        try:
+            logger.info("Fetching public schema tables")
+            
+            # Call the database service to get public tables
+            result = db_service.get_public_tables()
+            
+            logger.info(f"Successfully fetched {len(result)} public tables")
+            return {"data": result}
+            
+        except Exception as e:
+            logger.error(f"Error fetching public tables: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch public tables: {str(e)}")
+
     return router
