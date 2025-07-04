@@ -3,7 +3,7 @@
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
 from app.services.db_service import DatabaseService
-from app.models.api import MediaListResponse, MediaType, PipelineStatus, RejectionStatus, FlywayHistoryResponse
+from app.models.api import MediaListResponse, MediaType, PipelineStatus, RejectionStatus
 import logging
 
 logger = logging.getLogger("rear-differential.media")
@@ -62,46 +62,5 @@ def get_router():
             logger.error(f"Error fetching media data: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch media data: {str(e)}")
 
-    @router.get("/flyway", response_model=FlywayHistoryResponse)
-    async def get_flyway_history():
-        """
-        Get all records from flyway_schema_history table.
-        
-        Returns:
-            All flyway schema history records
-        """
-        try:
-            logger.info("Fetching flyway schema history")
-            
-            # Call the database service to get flyway data
-            result = db_service.get_flyway_schema_history()
-            
-            logger.info(f"Successfully fetched {len(result)} flyway history records")
-            return {"data": result}
-            
-        except Exception as e:
-            logger.error(f"Error fetching flyway history: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch flyway history: {str(e)}")
-
-    @router.get("/public-tables")
-    async def get_public_tables():
-        """
-        Get all tables in public schema for debugging.
-        
-        Returns:
-            List of all tables in public schema
-        """
-        try:
-            logger.info("Fetching public schema tables")
-            
-            # Call the database service to get public tables
-            result = db_service.get_public_tables()
-            
-            logger.info(f"Successfully fetched {len(result)} public tables")
-            return {"data": result}
-            
-        except Exception as e:
-            logger.error(f"Error fetching public tables: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch public tables: {str(e)}")
 
     return router

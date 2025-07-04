@@ -96,11 +96,12 @@ async def general_exception_handler(request, exc):
 app.include_router(root_router)
 
 # Import routers
-from app.routers import training, media
+from app.routers import training, media, flyway
 
 # Include routers
 app.include_router(training.get_router(), prefix="/rear-diff/training", tags=["training"])
 app.include_router(media.get_router(), prefix="/rear-diff/media", tags=["media"])
+app.include_router(flyway.get_router(), prefix="/rear-diff", tags=["flyway"])
 
 if __name__ == "__main__":
     import uvicorn

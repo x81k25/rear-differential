@@ -399,9 +399,13 @@ class DatabaseService:
             if conn:
                 conn.close()
 
-    def get_flyway_schema_history(self) -> List[Dict[str, Any]]:
+    def get_flyway_schema_history(self, sort_by: str = "installed_rank", sort_order: str = "asc") -> List[Dict[str, Any]]:
         """
         Get all records from flyway_schema_history table.
+
+        Args:
+            sort_by: Field to sort by (installed_rank, installed_on, version)
+            sort_order: Sort direction (asc/desc)
 
         Returns:
             List of flyway schema history records
@@ -410,16 +414,6 @@ class DatabaseService:
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                # List all tables in public schema for debugging
-                cursor.execute("""
-                    SELECT table_name 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public'
-                    ORDER BY table_name
-                """)
-                public_tables = cursor.fetchall()
-                logger.info(f"Tables in public schema: {[t['table_name'] for t in public_tables]}")
-                
                 # Check if flyway_schema_history exists in any schema
                 cursor.execute("""
                     SELECT table_schema, table_name 
@@ -427,11 +421,21 @@ class DatabaseService:
                     WHERE table_name = 'flyway_schema_history'
                 """)
                 flyway_tables = cursor.fetchall()
-                logger.info(f"flyway_schema_history found in schemas: {[(t['table_schema'], t['table_name']) for t in flyway_tables]}")
                 
                 if flyway_tables:
                     # Use the first schema where the table exists
                     schema_name = flyway_tables[0]['table_schema']
+                    
+                    # Validate sort_by to prevent SQL injection
+                    valid_sort_fields = ["installed_rank", "installed_on", "version"]
+                    if sort_by not in valid_sort_fields:
+                        sort_by = "installed_rank"
+                    
+                    # Validate sort_order
+                    sort_order = sort_order.lower()
+                    if sort_order not in ["asc", "desc"]:
+                        sort_order = "asc"
+                    
                     query = f"""
                         SELECT 
                             installed_rank,
@@ -445,7 +449,7 @@ class DatabaseService:
                             execution_time,
                             success
                         FROM {schema_name}.flyway_schema_history
-                        ORDER BY installed_rank
+                        ORDER BY {sort_by} {sort_order}
                     """
                     cursor.execute(query)
                     return cursor.fetchall()
