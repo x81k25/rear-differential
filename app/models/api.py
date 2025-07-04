@@ -382,3 +382,22 @@ class FlywayHistoryModel(BaseModel):
 class FlywayHistoryResponse(BaseModel):
     """Response model for flyway schema history."""
     data: List[FlywayHistoryModel]
+
+class MediaPipelineUpdateRequest(BaseModel):
+    """Request model for updating media pipeline status."""
+    hash: str
+    pipeline_status: Optional[PipelineStatus] = None
+    error_status: Optional[bool] = None
+    rejection_status: Optional[RejectionStatus] = None
+
+    @validator('hash')
+    def validate_hash(cls, v):
+        if not re.match(r'^[a-f0-9]{40}$', v):
+            raise ValueError('Hash must be exactly 40 hex characters')
+        return v
+
+class MediaPipelineUpdateResponse(BaseModel):
+    """Response model for updating media pipeline status."""
+    success: bool
+    message: str
+    error: Optional[str] = None
