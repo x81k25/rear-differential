@@ -436,6 +436,11 @@ class DatabaseService:
                     if sort_order not in ["asc", "desc"]:
                         sort_order = "asc"
                     
+                    # Handle numeric sorting for installed_rank
+                    order_clause = f"{sort_by} {sort_order}"
+                    if sort_by == "installed_rank":
+                        order_clause = f"CAST({sort_by} AS INTEGER) {sort_order}"
+                    
                     query = f"""
                         SELECT 
                             installed_rank,
@@ -449,7 +454,7 @@ class DatabaseService:
                             execution_time,
                             success
                         FROM {schema_name}.flyway_schema_history
-                        ORDER BY {sort_by} {sort_order}
+                        ORDER BY {order_clause}
                     """
                     cursor.execute(query)
                     return cursor.fetchall()

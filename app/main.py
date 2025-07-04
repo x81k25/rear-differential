@@ -76,41 +76,18 @@ async def custom_redoc_html():
         title=app.title + " - ReDoc"
     )
 
-# Add exception handlers
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"message": exc.detail},
-    )
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request, exc):
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"message": "Internal server error"},
-    )
-
-# Include the root router in the app
-app.include_router(root_router)
-
-# Import routers
+# Import routers and models before defining endpoints
 from app.routers import training, media
 from app.services.db_service import DatabaseService
 from app.models.api import FlywayHistoryResponse
 
-# Include routers
-app.include_router(training.get_router(), prefix="/rear-diff/training", tags=["training"])
-app.include_router(media.get_router(), prefix="/rear-diff/media", tags=["media"])
-
-# Add flyway endpoint directly to root router
+# Add flyway endpoint to root router
 db_service = DatabaseService()
 
 @root_router.get("/flyway", response_model=FlywayHistoryResponse, tags=["flyway"])
 async def get_flyway_history(
-    sort_by: str = Query("installed_rank", regex="^(installed_rank|installed_on|version)$"),
-    sort_order: str = Query("asc", regex="^(asc|desc)$")
+    sort_by: str = Query("installed_rank", pattern="^(installed_rank|installed_on|version)$"),
+    sort_order: str = Query("asc", pattern="^(asc|desc)$")
 ):
     """
     Get all records from flyway_schema_history table.
@@ -134,6 +111,29 @@ async def get_flyway_history(
     except Exception as e:
         logger.error(f"Error fetching flyway history: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch flyway history: {str(e)}")
+
+# Add exception handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"message": exc.detail},
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Internal server error"},
+    )
+
+# Include the root router in the app
+app.include_router(root_router)
+
+# Include routers
+app.include_router(training.get_router(), prefix="/rear-diff/training", tags=["training"])
+app.include_router(media.get_router(), prefix="/rear-diff/media", tags=["media"])
 
 if __name__ == "__main__":
     import uvicorn
