@@ -357,3 +357,20 @@ class MediaListResponse(BaseModel):
     """Response model for the media listing endpoint."""
     data: List[MediaResponseModel]
     pagination: Dict[str, Any]
+
+class FlywayHistoryModel(BaseModel):
+    """Model for flyway schema history response."""
+    installed_rank: int
+    version: Optional[str] = None
+    description: str
+    type: str
+    script: str
+    checksum: Optional[int] = None
+    installed_by: str
+    installed_on: datetime
+    execution_time: int
+    success: bool
+
+class FlywayHistoryResponse(BaseModel):
+    """Response model for flyway schema history."""
+    data: List[FlywayHistoryModel]
