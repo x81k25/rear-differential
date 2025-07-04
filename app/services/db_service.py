@@ -384,23 +384,49 @@ class DatabaseService:
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                query = """
-                    SELECT 
-                        installed_rank,
-                        version,
-                        description,
-                        type,
-                        script,
-                        checksum,
-                        installed_by,
-                        installed_on,
-                        execution_time,
-                        success
-                    FROM public.flyway_schema_history
-                    ORDER BY installed_rank
-                """
-                cursor.execute(query)
-                return cursor.fetchall()
+                # List all tables in public schema for debugging
+                cursor.execute("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public'
+                    ORDER BY table_name
+                """)
+                public_tables = cursor.fetchall()
+                logger.info(f"Tables in public schema: {[t['table_name'] for t in public_tables]}")
+                
+                # Check if flyway_schema_history exists in any schema
+                cursor.execute("""
+                    SELECT table_schema, table_name 
+                    FROM information_schema.tables 
+                    WHERE table_name = 'flyway_schema_history'
+                """)
+                flyway_tables = cursor.fetchall()
+                logger.info(f"flyway_schema_history found in schemas: {[(t['table_schema'], t['table_name']) for t in flyway_tables]}")
+                
+                if flyway_tables:
+                    # Use the first schema where the table exists
+                    schema_name = flyway_tables[0]['table_schema']
+                    query = f"""
+                        SELECT 
+                            installed_rank,
+                            version,
+                            description,
+                            type,
+                            script,
+                            checksum,
+                            installed_by,
+                            installed_on,
+                            execution_time,
+                            success
+                        FROM {schema_name}.flyway_schema_history
+                        ORDER BY installed_rank
+                    """
+                    cursor.execute(query)
+                    return cursor.fetchall()
+                else:
+                    # Table doesn't exist anywhere, return empty list
+                    logger.warning("flyway_schema_history table not found in any schema")
+                    return []
 
         except Exception as e:
             logger.error(f"Error fetching flyway schema history: {e}")
