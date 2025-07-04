@@ -62,4 +62,5 @@ def get_router():
             logger.error(f"Error fetching media data: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch media data: {str(e)}")
 
+
     return router

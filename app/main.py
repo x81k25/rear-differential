@@ -1,6 +1,6 @@
 # app/main.py
 import logging
-from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi import FastAPI, HTTPException, APIRouter, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -97,10 +97,43 @@ app.include_router(root_router)
 
 # Import routers
 from app.routers import training, media
+from app.services.db_service import DatabaseService
+from app.models.api import FlywayHistoryResponse
 
 # Include routers
 app.include_router(training.get_router(), prefix="/rear-diff/training", tags=["training"])
 app.include_router(media.get_router(), prefix="/rear-diff/media", tags=["media"])
+
+# Add flyway endpoint directly to root router
+db_service = DatabaseService()
+
+@root_router.get("/flyway", response_model=FlywayHistoryResponse, tags=["flyway"])
+async def get_flyway_history(
+    sort_by: str = Query("installed_rank", regex="^(installed_rank|installed_on|version)$"),
+    sort_order: str = Query("asc", regex="^(asc|desc)$")
+):
+    """
+    Get all records from flyway_schema_history table.
+    
+    Parameters:
+    - sort_by: Field to sort by (installed_rank, installed_on, version)
+    - sort_order: Sort direction (asc/desc)
+    
+    Returns:
+        All flyway schema history records
+    """
+    try:
+        logger.info(f"Fetching flyway schema history with sort_by={sort_by}, sort_order={sort_order}")
+        
+        # Call the database service to get flyway data
+        result = db_service.get_flyway_schema_history(sort_by=sort_by, sort_order=sort_order)
+        
+        logger.info(f"Successfully fetched {len(result)} flyway history records")
+        return {"data": result}
+        
+    except Exception as e:
+        logger.error(f"Error fetching flyway history: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch flyway history: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
