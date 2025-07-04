@@ -396,7 +396,7 @@ class DatabaseService:
                         installed_on,
                         execution_time,
                         success
-                    FROM flyway_schema_history
+                    FROM public.flyway_schema_history
                     ORDER BY installed_rank
                 """
                 cursor.execute(query)
