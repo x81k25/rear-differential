@@ -10,6 +10,7 @@ class MediaType(str, Enum):
     MOVIE = "movie"
     TV_SHOW = "tv_show"
     TV_SEASON = "tv_season"
+    UNKNOWN = "unknown"
 
 class LabelType(str, Enum):
     WOULD_WATCH = "would_watch"
@@ -17,19 +18,26 @@ class LabelType(str, Enum):
 
 class PipelineStatus(str, Enum):
     INGESTED = "ingested"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    PAUSED = "paused"
+    PARSED = "parsed"
+    REJECTED = "rejected"
+    FILE_ACCEPTED = "file_accepted"
+    METADATA_COLLECTED = "metadata_collected"
+    MEDIA_ACCEPTED = "media_accepted"
+    DOWNLOADING = "downloading"
+    DOWNLOADED = "downloaded"
+    TRANSFERRED = "transferred"
+    COMPLETE = "complete"
 
 class RejectionStatus(str, Enum):
     UNFILTERED = "unfiltered"
-    FILTERED = "filtered"
+    ACCEPTED = "accepted"
     REJECTED = "rejected"
+    OVERRIDE = "override"
 
 class RssSource(str, Enum):
-    RSS1 = "rss1"
-    RSS2 = "rss2"
-    RSS3 = "rss3"
+    YTS_MX = "yts.mx"
+    EPISODEFEED_COM = "episodefeed.com"
 
 class TrainingResponseModel(BaseModel):
     """Model for training data response."""
