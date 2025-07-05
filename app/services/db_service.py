@@ -156,6 +156,8 @@ class DatabaseService:
                       rejection_status: Optional[str] = None,
                       error_status: Optional[bool] = None,
                       imdb_id: Optional[str] = None,
+                      media_title: Optional[str] = None,
+                      hash: Optional[str] = None,
                       limit: int = 100,
                       offset: int = 0,
                       sort_by: str = "created_at",
@@ -169,6 +171,8 @@ class DatabaseService:
             rejection_status: Optional filter by rejection status
             error_status: Optional filter by error status
             imdb_id: Optional filter by specific IMDB ID
+            media_title: Optional search by media title (case-insensitive partial match)
+            hash: Optional filter by specific hash
             limit: Maximum number of results to return
             offset: Number of results to skip
             sort_by: Column to sort by
@@ -204,6 +208,14 @@ class DatabaseService:
                 if imdb_id:
                     where_conditions.append("imdb_id = %s")
                     params.append(imdb_id)
+                
+                if media_title:
+                    where_conditions.append("media_title ILIKE %s")
+                    params.append(f"%{media_title}%")
+                
+                if hash:
+                    where_conditions.append("hash = %s")
+                    params.append(hash)
                 
                 where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
                 
@@ -466,6 +478,87 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error fetching flyway schema history: {e}")
             raise
+        finally:
+            if conn:
+                conn.close()
+
+    def update_media_pipeline(self, hash: str, pipeline_status: Optional[str] = None, 
+                             error_status: Optional[bool] = None, 
+                             rejection_status: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Update the pipeline status, error status, and rejection status for a media entry.
+
+        Args:
+            hash: The hash of the media item
+            pipeline_status: Optional new pipeline status
+            error_status: Optional new error status
+            rejection_status: Optional new rejection status
+
+        Returns:
+            Dictionary with success status and message
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # Check if the media entry exists
+                cursor.execute("SELECT 1 FROM atp.media WHERE hash = %s", (hash,))
+                if cursor.fetchone() is None:
+                    return {
+                        "success": False,
+                        "error": "Media not found",
+                        "message": f"No media found with hash: {hash}"
+                    }
+
+                # Build the update query dynamically based on provided fields
+                update_fields = []
+                params = []
+
+                if pipeline_status is not None:
+                    update_fields.append("pipeline_status = %s")
+                    params.append(pipeline_status)
+
+                if error_status is not None:
+                    update_fields.append("error_status = %s")
+                    params.append(error_status)
+
+                if rejection_status is not None:
+                    update_fields.append("rejection_status = %s")
+                    params.append(rejection_status)
+
+                if not update_fields:
+                    return {
+                        "success": False,
+                        "error": "No fields to update",
+                        "message": "At least one field must be provided for update"
+                    }
+
+                # Always update the updated_at timestamp
+                update_fields.append("updated_at = NOW()")
+                params.append(hash)
+
+                query = f"""
+                    UPDATE atp.media
+                    SET {', '.join(update_fields)}
+                    WHERE hash = %s
+                """
+                cursor.execute(query, params)
+                conn.commit()
+
+                return {
+                    "success": True,
+                    "message": "Media pipeline status updated successfully"
+                }
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Error updating media pipeline status: {e}")
+            return {
+                "success": False,
+                "error": "Database error",
+                "message": str(e)
+            }
         finally:
             if conn:
                 conn.close()
