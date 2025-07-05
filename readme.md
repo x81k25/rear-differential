@@ -49,7 +49,7 @@ Retrieves training data entries from the database.
 
 **Optional Query Parameters**:
 
-- `media_type`: Filter by media type (e.g., "movie", "tv_show", "tv_season")
+- `media_type`: Filter by media type (e.g., "movie", "tv_show", "tv_season", "unknown")
 - `label`: Filter by label (e.g., "would_watch", "would_not_watch")
 - `reviewed`: Filter by reviewed status (boolean: true/false)
 - `human_labeled`: Filter by human labeled status (boolean: true/false)
@@ -279,9 +279,9 @@ Retrieves media data entries from the database.
 
 **Optional Query Parameters**:
 
-- `media_type`: Filter by media type (e.g., "movie", "tv_show", "tv_season")
-- `pipeline_status`: Filter by pipeline status
-- `rejection_status`: Filter by rejection status
+- `media_type`: Filter by media type (e.g., "movie", "tv_show", "tv_season", "unknown")
+- `pipeline_status`: Filter by pipeline status (e.g., "ingested", "paused", "parsed", "rejected", "file_accepted", "metadata_collected", "media_accepted", "downloading", "downloaded", "transferred", "complete")
+- `rejection_status`: Filter by rejection status (e.g., "unfiltered", "accepted", "rejected", "override")
 - `error_status`: Filter by error status (boolean: true/false)
 - `imdb_id`: Filter by specific IMDB ID
 - `limit`: Maximum number of records to return (1-1000, default: 100)
@@ -302,7 +302,7 @@ Retrieves media data entries from the database.
       "media_title": "Example Movie",
       "release_year": 2024,
       "imdb_rating": 7.5,
-      "pipeline_status": "completed",
+      "pipeline_status": "complete",
       "rejection_status": null,
       "error_status": false,
       "created_at": "2025-05-21T02:27:51.094287Z",
