@@ -73,8 +73,8 @@ jobs:
           file: ./dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.ENV_NAME }}
-            ${{ env.ENV_NAME == 'prod' && format('{0}/{1}:latest', env.REGISTRY, env.IMAGE_NAME) || '' }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name == 'main' && 'main' || env.ENV_NAME }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ substr(github.sha, 0, 8) }}
           build-args: |
             # Non-sensitive build args from GitHub variables
             API_HOST=${{ vars.API_HOST }}
