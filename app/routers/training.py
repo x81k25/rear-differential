@@ -88,11 +88,4 @@ def get_router():
 
         return result
 
-    @router.get("/test", response_model=dict)
-    async def test_endpoint():
-        """
-        Test endpoint for gitops testing.
-        """
-        return {"message": "Test endpoint working", "status": "success"}
-
     return router
