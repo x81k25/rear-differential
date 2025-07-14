@@ -118,7 +118,7 @@ class DatabaseService:
                 query = f"""
                     SELECT * FROM atp.training
                     {where_clause}
-                    ORDER BY {sort_by} {sort_order}
+                    ORDER BY {sort_by} {sort_order}, imdb_id ASC
                     LIMIT %s OFFSET %s
                 """
 
@@ -240,7 +240,7 @@ class DatabaseService:
                         created_at, updated_at
                     FROM atp.media
                     WHERE {where_clause}
-                    ORDER BY {sort_by} {sort_order}
+                    ORDER BY {sort_by} {sort_order}, hash ASC
                     LIMIT %s OFFSET %s
                 """
                 
