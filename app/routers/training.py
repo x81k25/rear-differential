@@ -1,6 +1,6 @@
 # app/routers/training.py
 from fastapi import APIRouter, HTTPException, Query, Path
-from typing import Optional
+from typing import Optional, List
 from app.models.api import TrainingListResponse, LabelUpdateRequest, LabelUpdateResponse, ReviewedUpdateRequest, ReviewedUpdateResponse, MediaType, LabelType
 from app.services.db_service import DatabaseService
 
@@ -15,7 +15,7 @@ def get_router():
         reviewed: Optional[bool] = Query(None, description="Filter by reviewed status"),
         human_labeled: Optional[bool] = Query(None, description="Filter by human labeled status"),
         anomalous: Optional[bool] = Query(None, description="Filter by anomalous status"),
-        imdb_id: Optional[str] = Query(None, description="Filter by specific IMDB ID"),
+        imdb_id: Optional[str] = Query(None, description="Filter by specific IMDB ID(s). Single ID or comma-separated list (e.g., 'tt1234567' or 'tt1234567,tt7654321')"),
         limit: int = Query(100, description="Maximum number of records to return"),
         offset: int = Query(0, description="Number of records to skip"),
         sort_by: str = Query("created_at", description="Field to sort results by"),
@@ -25,13 +25,19 @@ def get_router():
         Retrieve training data entries from the database with optional filtering and pagination.
         """
         try:
+            # Parse imdb_id parameter - handle single ID or comma-separated list
+            imdb_ids = None
+            if imdb_id:
+                # Split by comma and strip whitespace, filter out empty strings
+                imdb_ids = [id.strip() for id in imdb_id.split(',') if id.strip()]
+            
             result = db_service.get_training_data(
                 media_type=media_type.value if media_type else None,
                 label=label.value if label else None,
                 reviewed=reviewed,
                 human_labeled=human_labeled,
                 anomalous=anomalous,
-                imdb_id=imdb_id,
+                imdb_ids=imdb_ids,
                 limit=limit,
                 offset=offset,
                 sort_by=sort_by,

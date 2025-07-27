@@ -38,7 +38,7 @@ class DatabaseService:
                  reviewed: Optional[bool] = None,
                  human_labeled: Optional[bool] = None,
                  anomalous: Optional[bool] = None,
-                 imdb_id: Optional[str] = None,
+                 imdb_ids: Optional[List[str]] = None,
                  limit: int = 100,
                  offset: int = 0,
                  sort_by: str = "created_at",
@@ -52,7 +52,7 @@ class DatabaseService:
             reviewed: Optional filter by reviewed status
             human_labeled: Optional filter by human labeled status
             anomalous: Optional filter by anomalous status
-            imdb_id: Optional filter by specific IMDB ID
+            imdb_ids: Optional filter by list of specific IMDB IDs
             limit: Maximum number of records to return
             offset: Number of records to skip
             sort_by: Field to sort by
@@ -89,9 +89,11 @@ class DatabaseService:
                     where_clauses.append("anomalous = %s")
                     params.append(anomalous)
 
-                if imdb_id:
-                    where_clauses.append("imdb_id = %s")
-                    params.append(imdb_id)
+                if imdb_ids:
+                    # Handle multiple IMDB IDs using IN clause
+                    placeholders = ','.join(['%s'] * len(imdb_ids))
+                    where_clauses.append(f"imdb_id IN ({placeholders})")
+                    params.extend(imdb_ids)
 
                 where_clause = " AND ".join(where_clauses)
                 if where_clause:
