@@ -562,3 +562,111 @@ class DatabaseService:
         finally:
             if conn:
                 conn.close()
+
+    def get_prediction_data(self,
+                          imdb_id: Optional[str] = None,
+                          prediction: Optional[int] = None,
+                          cm_value: Optional[str] = None,
+                          limit: int = 100,
+                          offset: int = 0,
+                          sort_by: str = "created_at",
+                          sort_order: str = "desc") -> Dict[str, Any]:
+        """
+        Get prediction data from atp.prediction table with optional filtering.
+
+        Args:
+            imdb_id: Optional filter by specific IMDB ID
+            prediction: Optional filter by prediction value (0 or 1)
+            cm_value: Optional filter by confusion matrix value (tn, tp, fn, fp)
+            limit: Maximum number of results to return
+            offset: Number of results to skip
+            sort_by: Column to sort by
+            sort_order: Sort order (asc/desc)
+
+        Returns:
+            Dictionary containing prediction data and pagination info
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Build the WHERE clause
+                where_conditions = []
+                params = []
+                
+                if imdb_id:
+                    where_conditions.append("imdb_id = %s")
+                    params.append(imdb_id)
+                
+                if prediction is not None:
+                    where_conditions.append("prediction = %s")
+                    params.append(prediction)
+                
+                if cm_value:
+                    where_conditions.append("cm_value = %s")
+                    params.append(cm_value)
+                
+                where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+                
+                # Count total records
+                count_query = f"SELECT COUNT(*) FROM atp.prediction WHERE {where_clause}"
+                cursor.execute(count_query, params)
+                total_count = cursor.fetchone()['count']
+                
+                # Validate sort_by to prevent SQL injection
+                valid_sort_fields = ["imdb_id", "prediction", "probability", "cm_value", "created_at"]
+                if sort_by not in valid_sort_fields:
+                    sort_by = "created_at"
+                
+                # Validate sort_order
+                sort_order = sort_order.lower()
+                if sort_order not in ["asc", "desc"]:
+                    sort_order = "desc"
+                
+                # Build the main query
+                query = f"""
+                    SELECT 
+                        imdb_id, prediction, probability, cm_value, created_at
+                    FROM atp.prediction
+                    WHERE {where_clause}
+                    ORDER BY {sort_by} {sort_order}, imdb_id ASC
+                    LIMIT %s OFFSET %s
+                """
+                
+                params.extend([limit, offset])
+                cursor.execute(query, params)
+                
+                # Fetch all results
+                prediction_data = cursor.fetchall()
+                
+                # Convert to list of dicts and handle any necessary data conversions
+                result_data = []
+                for row in prediction_data:
+                    # Convert row to dict (already done by RealDictCursor)
+                    row_dict = dict(row)
+                    
+                    # Ensure datetime objects are properly serialized
+                    if row_dict.get('created_at'):
+                        row_dict['created_at'] = row_dict['created_at'].isoformat()
+                    
+                    result_data.append(row_dict)
+                
+                # Prepare pagination info
+                pagination = {
+                    "total": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": (offset + limit) < total_count
+                }
+                
+                return {
+                    "data": result_data,
+                    "pagination": pagination
+                }
+                
+        except Exception as e:
+            logger.error(f"Error fetching prediction data: {e}")
+            raise
+        finally:
+            if conn:
+                conn.close()
