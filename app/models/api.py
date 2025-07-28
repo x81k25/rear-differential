@@ -401,3 +401,40 @@ class MediaPipelineUpdateResponse(BaseModel):
     success: bool
     message: str
     error: Optional[str] = None
+
+class PredictionResponseModel(BaseModel):
+    """Model for prediction data response."""
+    imdb_id: str
+    prediction: int
+    probability: Decimal
+    cm_value: str
+    created_at: datetime
+
+    @validator('imdb_id')
+    def validate_imdb_id(cls, v):
+        if not re.match(r'^tt[0-9]{7,8}$', v):
+            raise ValueError('IMDB ID must match format tt followed by 7-8 digits')
+        return v
+
+    @validator('prediction')
+    def validate_prediction(cls, v):
+        if v not in [0, 1]:
+            raise ValueError('Prediction must be 0 or 1')
+        return v
+
+    @validator('probability')
+    def validate_probability(cls, v):
+        if v < 0 or v > 1:
+            raise ValueError('Probability must be between 0 and 1')
+        return v
+
+    @validator('cm_value')
+    def validate_cm_value(cls, v):
+        if v not in ['tn', 'tp', 'fn', 'fp']:
+            raise ValueError('cm_value must be one of: tn, tp, fn, fp')
+        return v
+
+class PredictionListResponse(BaseModel):
+    """Response model for the prediction data listing endpoint."""
+    data: List[PredictionResponseModel]
+    pagination: Dict[str, Any]
