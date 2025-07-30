@@ -209,14 +209,14 @@ class TrainingUpdateRequest(BaseModel):
             raise ValueError('IMDB ID must match format tt followed by 7-8 digits')
         return v
 
-    @validator('label', 'human_labeled', 'anomalous', 'reviewed')
+    @validator('reviewed', always=True)
     def validate_at_least_one_field(cls, v, values):
-        # This validator runs for each field, so we check if any field is set
-        fields = ['label', 'human_labeled', 'anomalous', 'reviewed']
-        if all(values.get(field) is None for field in fields if field in values) and v is None:
-            # Only raise error if this is the last field being validated
-            if len(values) == 4:  # All other fields have been validated
-                raise ValueError('At least one field must be provided for update')
+        # This validator runs last (on 'reviewed' field) to check if at least one update field is provided
+        if (values.get('label') is None and 
+            values.get('human_labeled') is None and 
+            values.get('anomalous') is None and 
+            v is None):
+            raise ValueError('At least one field must be provided for update (label, human_labeled, anomalous, or reviewed)')
         return v
 
 class TrainingUpdateResponse(BaseModel):
