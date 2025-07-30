@@ -394,12 +394,12 @@ To test the Rear Differential API locally before containerization:
 1. Ensure required dependencies are installed:
 
 ```bash
-pip install fastapi uvicorn psycopg2-binary
+uv sync
 ```
 
 2. Start the API server:
 ```bash
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 3. Test the endpoints:
@@ -528,7 +528,7 @@ Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/flyway?sort_by=version&s
 
 5. To stop the server when finished:
 
-# Press Ctrl+C in the terminal running the server
+Press Ctrl+C in the terminal running the server
 
 6. Kill any running instances that weren't terminated properly
 
