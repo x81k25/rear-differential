@@ -195,10 +195,13 @@ class TrainingListResponse(BaseModel):
     data: List[TrainingResponseModel]
     pagination: Dict[str, Any]
 
-class LabelUpdateRequest(BaseModel):
-    """Request model for updating label."""
+class TrainingUpdateRequest(BaseModel):
+    """Request model for updating training data fields."""
     imdb_id: str
-    label: LabelType
+    label: Optional[LabelType] = None
+    human_labeled: Optional[bool] = None
+    anomalous: Optional[bool] = None
+    reviewed: Optional[bool] = None
 
     @validator('imdb_id')
     def validate_imdb_id(cls, v):
@@ -206,27 +209,22 @@ class LabelUpdateRequest(BaseModel):
             raise ValueError('IMDB ID must match format tt followed by 7-8 digits')
         return v
 
-class LabelUpdateResponse(BaseModel):
-    """Response model for updating label."""
-    success: bool
-    message: str
-    error: Optional[str] = None
-
-class ReviewedUpdateRequest(BaseModel):
-    """Request model for updating reviewed status."""
-    imdb_id: str
-
-    @validator('imdb_id')
-    def validate_imdb_id(cls, v):
-        if not re.match(r'^tt[0-9]{7,8}$', v):
-            raise ValueError('IMDB ID must match format tt followed by 7-8 digits')
+    @validator('label', 'human_labeled', 'anomalous', 'reviewed')
+    def validate_at_least_one_field(cls, v, values):
+        # This validator runs for each field, so we check if any field is set
+        fields = ['label', 'human_labeled', 'anomalous', 'reviewed']
+        if all(values.get(field) is None for field in fields if field in values) and v is None:
+            # Only raise error if this is the last field being validated
+            if len(values) == 4:  # All other fields have been validated
+                raise ValueError('At least one field must be provided for update')
         return v
 
-class ReviewedUpdateResponse(BaseModel):
-    """Response model for updating reviewed status."""
+class TrainingUpdateResponse(BaseModel):
+    """Response model for updating training data."""
     success: bool
     message: str
     error: Optional[str] = None
+    updated_fields: Optional[Dict[str, Any]] = None
 
 class MediaResponseModel(BaseModel):
     """Model for media data response."""

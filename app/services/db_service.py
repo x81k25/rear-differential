@@ -393,6 +393,107 @@ class DatabaseService:
             if conn:
                 conn.close()
 
+    def update_training_fields(self, imdb_id: str, label: Optional[str] = None, 
+                             human_labeled: Optional[bool] = None, 
+                             anomalous: Optional[bool] = None,
+                             reviewed: Optional[bool] = None) -> Dict[str, Any]:
+        """
+        Update multiple fields for a training data entry.
+
+        Args:
+            imdb_id: The IMDB ID of the media item
+            label: The new label value (optional)
+            human_labeled: The new human_labeled value (optional)
+            anomalous: The new anomalous value (optional)
+            reviewed: The new reviewed value (optional)
+
+        Returns:
+            Dictionary with success status and message
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # Check if the training data entry exists
+                cursor.execute("SELECT 1 FROM atp.training WHERE imdb_id = %s", (imdb_id,))
+                if cursor.fetchone() is None:
+                    return {
+                        "success": False,
+                        "error": "Training data not found",
+                        "message": f"No training data found with IMDB ID: {imdb_id}"
+                    }
+
+                # Build dynamic update query
+                update_fields = []
+                params = []
+                updated_fields = {}
+                
+                if label is not None:
+                    update_fields.append("label = %s")
+                    params.append(label)
+                    updated_fields['label'] = label
+                    # When label is updated, also set human_labeled and reviewed to True
+                    update_fields.append("human_labeled = TRUE")
+                    updated_fields['human_labeled'] = True
+                    update_fields.append("reviewed = TRUE")
+                    updated_fields['reviewed'] = True
+                
+                if human_labeled is not None and label is None:
+                    update_fields.append("human_labeled = %s")
+                    params.append(human_labeled)
+                    updated_fields['human_labeled'] = human_labeled
+                
+                if anomalous is not None:
+                    update_fields.append("anomalous = %s")
+                    params.append(anomalous)
+                    updated_fields['anomalous'] = anomalous
+                
+                if reviewed is not None and label is None:
+                    update_fields.append("reviewed = %s")
+                    params.append(reviewed)
+                    updated_fields['reviewed'] = reviewed
+
+                if not update_fields:
+                    return {
+                        "success": False,
+                        "error": "No fields to update",
+                        "message": "At least one field must be provided for update"
+                    }
+
+                # Add updated_at timestamp
+                update_fields.append("updated_at = NOW()")
+                
+                # Add imdb_id to params
+                params.append(imdb_id)
+
+                # Execute update
+                query = f"""
+                    UPDATE atp.training
+                    SET {', '.join(update_fields)}
+                    WHERE imdb_id = %s
+                """
+                cursor.execute(query, params)
+                conn.commit()
+
+                return {
+                    "success": True,
+                    "message": "Training data updated successfully",
+                    "updated_fields": updated_fields
+                }
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Error updating training fields: {e}")
+            return {
+                "success": False,
+                "error": "Database error",
+                "message": str(e)
+            }
+        finally:
+            if conn:
+                conn.close()
+
     def get_public_tables(self) -> List[Dict[str, Any]]:
         """
         Get all tables in public schema.
