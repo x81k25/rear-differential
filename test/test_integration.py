@@ -116,7 +116,7 @@ class TestTrainingEndpoints:
         assert response.status_code == 200
     
     def test_update_label_endpoint(self, api_server, base_url):
-        """Test PATCH label endpoint."""
+        """Test PATCH training endpoint for label updates."""
         # First get a training record to update
         response = requests.get(f"{base_url}/rear-diff/training?limit=1")
         assert response.status_code == 200
@@ -125,13 +125,13 @@ class TestTrainingEndpoints:
         if data["data"]:
             imdb_id = data["data"][0]["imdb_id"]
             
-            # Update the label
+            # Update the label using unified PATCH endpoint
             update_data = {
                 "imdb_id": imdb_id,
                 "label": "would_watch"
             }
             response = requests.patch(
-                f"{base_url}/rear-diff/training/{imdb_id}/label",
+                f"{base_url}/rear-diff/training/{imdb_id}",
                 json=update_data
             )
             assert response.status_code == 200
@@ -140,7 +140,7 @@ class TestTrainingEndpoints:
             assert "message" in result
     
     def test_update_reviewed_endpoint(self, api_server, base_url):
-        """Test PATCH reviewed endpoint."""
+        """Test PATCH training endpoint for reviewed status updates."""
         # First get a training record to update
         response = requests.get(f"{base_url}/rear-diff/training?limit=1")
         assert response.status_code == 200
@@ -149,10 +149,13 @@ class TestTrainingEndpoints:
         if data["data"]:
             imdb_id = data["data"][0]["imdb_id"]
             
-            # Update the reviewed status
-            update_data = {"imdb_id": imdb_id}
+            # Update the reviewed status using unified PATCH endpoint
+            update_data = {
+                "imdb_id": imdb_id,
+                "reviewed": True
+            }
             response = requests.patch(
-                f"{base_url}/rear-diff/training/{imdb_id}/reviewed",
+                f"{base_url}/rear-diff/training/{imdb_id}",
                 json=update_data
             )
             assert response.status_code == 200
@@ -380,11 +383,11 @@ class TestAPIDocumentation:
             "/rear-diff/health",
             "/rear-diff/flyway",
             "/rear-diff/training",
-            "/rear-diff/training/{imdb_id}/label",
-            "/rear-diff/training/{imdb_id}/reviewed",
+            "/rear-diff/training/{imdb_id}",
             "/rear-diff/media/",
             "/rear-diff/media/{hash}/pipeline",
-            "/rear-diff/prediction/"
+            "/rear-diff/prediction/",
+            "/rear-diff/movies/"
         ]
         
         for path in expected_paths:
@@ -400,12 +403,14 @@ class TestErrorHandling:
     """Test error handling and edge cases."""
     
     def test_invalid_endpoints(self, api_server, base_url):
-        """Test 404 responses for invalid endpoints."""
+        """Test error responses for invalid endpoints."""
         response = requests.get(f"{base_url}/rear-diff/invalid")
         assert response.status_code == 404
         
+        # /rear-diff/training/invalid returns 405 (Method Not Allowed) because it matches 
+        # the path pattern /rear-diff/training/{imdb_id} but GET is not allowed (only PATCH)
         response = requests.get(f"{base_url}/rear-diff/training/invalid")
-        assert response.status_code == 404
+        assert response.status_code == 405
     
     def test_invalid_parameters(self, api_server, base_url):
         """Test validation of query parameters."""
@@ -423,25 +428,25 @@ class TestErrorHandling:
         assert response.status_code == 422
     
     def test_invalid_patch_data(self, api_server, base_url):
-        """Test PATCH endpoints with invalid data."""
-        # Invalid label update
+        """Test PATCH training endpoint with invalid data."""
+        # Invalid label update using unified endpoint
         update_data = {
             "imdb_id": "tt1234567",
             "label": "invalid_label"
         }
         response = requests.patch(
-            f"{base_url}/rear-diff/training/tt1234567/label",
+            f"{base_url}/rear-diff/training/tt1234567",
             json=update_data
         )
         assert response.status_code == 422
         
-        # Invalid IMDB ID format
+        # Invalid IMDB ID format using unified endpoint
         update_data = {
             "imdb_id": "invalid_id",
             "label": "would_watch"
         }
         response = requests.patch(
-            f"{base_url}/rear-diff/training/invalid_id/label",
+            f"{base_url}/rear-diff/training/invalid_id",
             json=update_data
         )
         assert response.status_code == 422

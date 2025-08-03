@@ -12,14 +12,13 @@ def main():
     parent_dir = os.path.dirname(current_dir)
     sys.path.insert(0, parent_dir)
     
-    # Install test requirements
-    print("Installing test dependencies...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-r", "test/requirements.txt"], 
-                   cwd=parent_dir, check=True)
+    # Install dependencies with uv
+    print("Installing dependencies with uv...")
+    subprocess.run(["uv", "sync"], cwd=parent_dir, check=True)
     
-    # Run pytest
+    # Run pytest with uv
     print("Running integration tests...")
-    cmd = [sys.executable, "-m", "pytest", "test/", "-v", "--tb=short"]
+    cmd = ["uv", "run", "pytest", "test/", "-v", "--tb=short"]
     
     # Add any command line arguments passed to this script
     if len(sys.argv) > 1:

@@ -1,7 +1,7 @@
 # app/routers/training.py
 from fastapi import APIRouter, HTTPException, Query, Path
 from typing import Optional, List
-from app.models.api import TrainingListResponse, LabelUpdateRequest, LabelUpdateResponse, ReviewedUpdateRequest, ReviewedUpdateResponse, MediaType, LabelType
+from app.models.api import TrainingListResponse, TrainingUpdateRequest, TrainingUpdateResponse, MediaType, LabelType
 from app.services.db_service import DatabaseService
 
 def get_router():
@@ -50,13 +50,15 @@ def get_router():
                 detail={"error": "Database error occurred", "details": str(e)}
             )
 
-    @router.patch("/{imdb_id}/label", response_model=LabelUpdateResponse)
-    async def update_label(
+    @router.patch("/{imdb_id}", response_model=TrainingUpdateResponse)
+    async def update_training(
         imdb_id: str = Path(..., description="The IMDB ID of the media item (format: tt followed by 7-8 digits)"),
-        request: LabelUpdateRequest = None
+        request: TrainingUpdateRequest = None
     ):
         """
-        Update the label for a specific training data entry.
+        Update training data fields for a specific entry.
+        Can update label, human_labeled, anomalous, and reviewed fields.
+        When label is updated, human_labeled and reviewed are automatically set to True.
         """
         # Validate that path imdb_id matches request body imdb_id
         if request.imdb_id != imdb_id:
@@ -66,30 +68,15 @@ def get_router():
                 "message": "Path IMDB ID and body IMDB ID do not match"
             }
 
-        result = db_service.update_label(imdb_id, request.label.value)
-        if not result.get("success", False):
-            status_code = 404 if result.get("error") == "Training data not found" else 500
-            return result
-
-        return result
-
-    @router.patch("/{imdb_id}/reviewed", response_model=ReviewedUpdateResponse)
-    async def update_reviewed(
-        imdb_id: str = Path(..., description="The IMDB ID of the media item (format: tt followed by 7-8 digits)"),
-        request: ReviewedUpdateRequest = None
-    ):
-        """
-        Update the reviewed status for a specific training data entry.
-        """
-        # Validate that path imdb_id matches request body imdb_id
-        if request.imdb_id != imdb_id:
-            return {
-                "success": False,
-                "error": "IMDB ID mismatch",
-                "message": "Path IMDB ID and body IMDB ID do not match"
-            }
-
-        result = db_service.update_reviewed(imdb_id)
+        # Call the new update method with all possible fields
+        result = db_service.update_training_fields(
+            imdb_id=imdb_id,
+            label=request.label.value if request.label else None,
+            human_labeled=request.human_labeled,
+            anomalous=request.anomalous,
+            reviewed=request.reviewed
+        )
+        
         if not result.get("success", False):
             status_code = 404 if result.get("error") == "Training data not found" else 500
             return result

@@ -20,11 +20,17 @@ ENV REAR_DIFF_PGSQL_USERNAME=${REAR_DIFF_PGSQL_USERNAME}
 ENV REAR_DIFF_PGSQL_PASSWORD=${REAR_DIFF_PGSQL_PASSWORD}
 ENV REAR_DIFF_PGSQL_DATABASE=${REAR_DIFF_PGSQL_DATABASE}
 
+# Install uv
+RUN pip install --no-cache-dir uv
+
 WORKDIR /rear-differential
 
-# Copy requirements and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy dependency files
+COPY pyproject.toml .
+COPY uv.lock .
+
+# Install dependencies using uv (production only, no dev dependencies)
+RUN uv sync --no-dev --no-cache
 
 # Copy application code
 COPY ./app/ ./app
@@ -32,5 +38,5 @@ COPY ./app/ ./app
 # Expose the port
 EXPOSE ${API_PORT}
 
-# Run the application with reload enabled (in dev only)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run the application
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
