@@ -32,8 +32,7 @@ The API exposes the following endpoints:
 
 - `GET /rear-diff/health` - Health check endpoint
 - `GET /rear-diff/training` - Retrieves training data entries from the database
-- `PATCH /rear-diff/training/{imdb_id}/label` - Updates the label for a specific training data entry (sets human_labeled and reviewed to true)
-- `PATCH /rear-diff/training/{imdb_id}/reviewed` - Sets the reviewed status to true for a specific training data entry
+- `PATCH /rear-diff/training/{imdb_id}` - Updates training data fields (label, human_labeled, anomalous, reviewed)
 - `GET /rear-diff/media/` - Retrieves media data entries from the database
 - `GET /rear-diff/flyway` - Retrieves flyway schema history records
 
@@ -120,11 +119,11 @@ Retrieves training data entries from the database.
 }
 ```
 
-### PATCH /rear-diff/training/{imdb_id}/label
+### PATCH /rear-diff/training/{imdb_id}
 
-Updates the label for a specific training data entry and sets human_labeled and reviewed to true.
+Updates training data fields for a specific entry.
 
-**Description**: This endpoint allows users to update the label column in the database for a training data entry identified by its IMDB ID. Additionally, it automatically sets both human_labeled and reviewed columns to true.
+**Description**: This endpoint allows users to update one or more fields (label, human_labeled, anomalous, reviewed) in the database for a training data entry identified by its IMDB ID. When the label field is updated, both human_labeled and reviewed are automatically set to true.
 
 **HTTP Method**: PATCH
 
@@ -137,15 +136,22 @@ Updates the label for a specific training data entry and sets human_labeled and 
 ```json
 {
   "imdb_id": "tt2759766",
-  "label": "would_watch"
+  "label": "would_watch",
+  "human_labeled": true,
+  "anomalous": false,
+  "reviewed": true
 }
 ```
 
-**Required Fields**:
+**Fields** (all optional, but at least one must be provided):
 
 - `imdb_id`: String - The IMDB ID of the training data entry (must match the imdb_id in the URL path)
 - `label`: String - The new label value
   - Valid values: "would_watch", "would_not_watch"
+  - When set, automatically sets human_labeled and reviewed to true
+- `human_labeled`: Boolean - Flag indicating human labeling
+- `anomalous`: Boolean - Flag for anomalous media items
+- `reviewed`: Boolean - Flag indicating review status
 
 **Responses**:
 
@@ -154,7 +160,12 @@ Updates the label for a specific training data entry and sets human_labeled and 
 ```json
 {
   "success": true,
-  "message": "Label updated successfully"
+  "message": "Training data updated successfully",
+  "updated_fields": {
+    "label": "would_watch",
+    "human_labeled": true,
+    "reviewed": true
+  }
 }
 ```
 
@@ -166,76 +177,9 @@ Updates the label for a specific training data entry and sets human_labeled and 
 {
   "success": false,
   "error": "Invalid request",
-  "message": "Label must be one of: would_watch, would_not_watch"
+  "message": "At least one field must be provided for update"
 }
 ```
-
-**400 Bad Request (IMDB ID Mismatch)**:
-
-```json
-{
-  "success": false,
-  "error": "IMDB ID mismatch",
-  "message": "Path IMDB ID and body IMDB ID do not match"
-}
-```
-
-**404 Not Found**:
-
-```json
-{
-  "success": false,
-  "error": "Training data not found",
-  "message": "No training data found with IMDB ID: tt2759766"
-}
-```
-
-**500 Internal Server Error**:
-
-```json
-{
-  "success": false,
-  "error": "Database error",
-  "message": "Error details here"
-}
-```
-
-### PATCH /rear-diff/training/{imdb_id}/reviewed
-
-Sets the reviewed status to true for a specific training data entry.
-
-**Description**: This endpoint allows users to update only the reviewed column to true in the database for a training data entry identified by its IMDB ID.
-
-**HTTP Method**: PATCH
-
-**Path Parameters**:
-
-- `imdb_id`: The unique identifier (format: tt followed by 7-8 digits) of the training data entry to update
-
-**Request Body**:
-
-```json
-{
-  "imdb_id": "tt2759766"
-}
-```
-
-**Required Fields**:
-
-- `imdb_id`: String - The IMDB ID of the training data entry (must match the imdb_id in the URL path)
-
-**Responses**:
-
-**Success Response (200 OK)**:
-
-```json
-{
-  "success": true,
-  "message": "Reviewed status updated successfully"
-}
-```
-
-**Error Responses**:
 
 **400 Bad Request (IMDB ID Mismatch)**:
 
@@ -394,12 +338,12 @@ To test the Rear Differential API locally before containerization:
 1. Ensure required dependencies are installed:
 
 ```bash
-pip install fastapi uvicorn psycopg2-binary
+uv sync
 ```
 
 2. Start the API server:
 ```bash
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 3. Test the endpoints:
@@ -459,11 +403,12 @@ Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?reviewed=false&
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training?anomalous=false&limit=10"
 ```
 
-**Update label:**
+**Update training data:**
 
+*Update label only (automatically sets human_labeled and reviewed to true):*
 ```bash
 # bash
-curl -X PATCH http://localhost:8000/rear-diff/training/tt2759766/label \
+curl -X PATCH http://localhost:8000/rear-diff/training/tt2759766 \
   -H "Content-Type: application/json" \
   -d '{"imdb_id": "tt2759766", "label": "would_watch"}'
 ```
@@ -474,24 +419,25 @@ $body = @{
   label = "would_watch"
 }
 $json = ConvertTo-Json $body
-Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766/label" -Method Patch -Body $json -ContentType "application/json"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766" -Method Patch -Body $json -ContentType "application/json"
 ```
 
-**Update reviewed status:**
-
+*Update multiple fields:*
 ```bash
 # bash
-curl -X PATCH http://localhost:8000/rear-diff/training/tt2759766/reviewed \
+curl -X PATCH http://localhost:8000/rear-diff/training/tt2759766 \
   -H "Content-Type: application/json" \
-  -d '{"imdb_id": "tt2759766"}'
+  -d '{"imdb_id": "tt2759766", "anomalous": true, "reviewed": true}'
 ```
 ```powershell
 # powershell
 $body = @{
   imdb_id = "tt2759766"
+  anomalous = $true
+  reviewed = $true
 }
 $json = ConvertTo-Json $body
-Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766/reviewed" -Method Patch -Body $json -ContentType "application/json"
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/training/tt2759766" -Method Patch -Body $json -ContentType "application/json"
 ```
 
 **Get media data:**
@@ -528,7 +474,7 @@ Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/flyway?sort_by=version&s
 
 5. To stop the server when finished:
 
-# Press Ctrl+C in the terminal running the server
+Press Ctrl+C in the terminal running the server
 
 6. Kill any running instances that weren't terminated properly
 
