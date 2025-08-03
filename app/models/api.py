@@ -436,3 +436,183 @@ class PredictionListResponse(BaseModel):
     """Response model for the prediction data listing endpoint."""
     data: List[PredictionResponseModel]
     pagination: Dict[str, Any]
+
+class MovieResponseModel(BaseModel):
+    """Model for movie data response from atp.movies view."""
+    # Identifier columns
+    imdb_id: str
+    tmdb_id: Optional[int] = None
+
+    # Label columns
+    label: Optional[LabelType] = None
+
+    # Media identifying information
+    media_type: Optional[MediaType] = None
+    media_title: Optional[str] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    release_year: Optional[int] = None
+
+    # Metadata pertaining to the media item
+    # - quantitative details
+    budget: Optional[int] = None
+    revenue: Optional[int] = None
+    runtime: Optional[int] = None
+
+    # - country and production information
+    origin_country: Optional[List[str]] = None
+    production_companies: Optional[List[str]] = None
+    production_countries: Optional[List[str]] = None
+    production_status: Optional[str] = None
+
+    # - language information
+    original_language: Optional[str] = None
+    spoken_languages: Optional[List[str]] = None
+
+    # - other string fields
+    genre: Optional[List[str]] = None
+    original_media_title: Optional[str] = None
+
+    # - long string fields
+    tagline: Optional[str] = None
+    overview: Optional[str] = None
+
+    # - ratings info
+    tmdb_rating: Optional[Decimal] = None
+    tmdb_votes: Optional[int] = None
+    rt_score: Optional[int] = None
+    metascore: Optional[int] = None
+    imdb_rating: Optional[Decimal] = None
+    imdb_votes: Optional[int] = None
+
+    # Flag columns
+    human_labeled: Optional[bool] = None
+    anomalous: Optional[bool] = None
+    reviewed: Optional[bool] = None
+
+    # Prediction columns
+    prediction: Optional[int] = None
+    probability: Optional[Decimal] = None
+    cm_value: Optional[str] = None
+
+    # Timestamps
+    training_created_at: Optional[datetime] = None
+    training_updated_at: Optional[datetime] = None
+    prediction_created_at: Optional[datetime] = None
+
+    @validator('imdb_id')
+    def validate_imdb_id(cls, v):
+        if not re.match(r'^tt[0-9]{7,8}$', v):
+            raise ValueError('IMDB ID must match format tt followed by 7-8 digits')
+        return v
+
+    @validator('tmdb_id')
+    def validate_tmdb_id(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('TMDB ID must be greater than 0')
+        return v
+
+    @validator('release_year')
+    def validate_release_year(cls, v):
+        if v is not None and (v < 1850 or v > 2100):
+            raise ValueError('Release year must be between 1850 and 2100')
+        return v
+
+    @validator('budget')
+    def validate_budget(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('Budget must be greater than or equal to 0')
+        return v
+
+    @validator('revenue')
+    def validate_revenue(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('Revenue must be greater than or equal to 0')
+        return v
+
+    @validator('runtime')
+    def validate_runtime(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('Runtime must be greater than or equal to 0')
+        return v
+
+    @validator('origin_country', 'production_countries')
+    def validate_country_codes(cls, v):
+        if v is not None:
+            for code in v:
+                if len(code) != 2:
+                    raise ValueError('Country codes must be exactly 2 characters')
+        return v
+
+    @validator('original_language')
+    def validate_original_language(cls, v):
+        if v is not None and len(v) != 2:
+            raise ValueError('Original language must be exactly 2 characters')
+        return v
+
+    @validator('spoken_languages')
+    def validate_spoken_languages(cls, v):
+        if v is not None:
+            for lang in v:
+                if len(lang) != 2:
+                    raise ValueError('Spoken language codes must be exactly 2 characters')
+        return v
+
+    @validator('tmdb_rating')
+    def validate_tmdb_rating(cls, v):
+        if v is not None and (v < 0 or v > 10):
+            raise ValueError('TMDB rating must be between 0 and 10')
+        return v
+
+    @validator('tmdb_votes')
+    def validate_tmdb_votes(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('TMDB votes must be greater than or equal to 0')
+        return v
+
+    @validator('rt_score')
+    def validate_rt_score(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError('RT score must be between 0 and 100')
+        return v
+
+    @validator('metascore')
+    def validate_metascore(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError('Metascore must be between 0 and 100')
+        return v
+
+    @validator('imdb_rating')
+    def validate_imdb_rating(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError('IMDB rating must be between 0 and 100')
+        return v
+
+    @validator('imdb_votes')
+    def validate_imdb_votes(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('IMDB votes must be greater than or equal to 0')
+        return v
+
+    @validator('prediction')
+    def validate_prediction(cls, v):
+        if v is not None and v not in [0, 1]:
+            raise ValueError('Prediction must be 0 or 1')
+        return v
+
+    @validator('probability')
+    def validate_probability(cls, v):
+        if v is not None and (v < 0 or v > 1):
+            raise ValueError('Probability must be between 0 and 1')
+        return v
+
+    @validator('cm_value')
+    def validate_cm_value(cls, v):
+        if v is not None and v not in ['tn', 'tp', 'fn', 'fp']:
+            raise ValueError('cm_value must be one of: tn, tp, fn, fp')
+        return v
+
+class MovieListResponse(BaseModel):
+    """Response model for the movie data listing endpoint."""
+    data: List[MovieResponseModel]
+    pagination: Dict[str, Any]

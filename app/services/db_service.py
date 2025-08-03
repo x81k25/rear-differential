@@ -779,3 +779,177 @@ class DatabaseService:
         finally:
             if conn:
                 conn.close()
+
+    def get_movie_data(self,
+                      media_type: Optional[str] = None,
+                      label: Optional[str] = None,
+                      reviewed: Optional[bool] = None,
+                      human_labeled: Optional[bool] = None,
+                      anomalous: Optional[bool] = None,
+                      imdb_ids: Optional[List[str]] = None,
+                      prediction: Optional[int] = None,
+                      cm_value: Optional[str] = None,
+                      media_title: Optional[str] = None,
+                      release_year: Optional[int] = None,
+                      limit: int = 100,
+                      offset: int = 0,
+                      sort_by: str = "training_created_at",
+                      sort_order: str = "desc") -> Dict[str, Any]:
+        """
+        Get movie data from atp.movies view with optional filtering.
+
+        Args:
+            media_type: Optional filter by media type
+            label: Optional filter by label
+            reviewed: Optional filter by reviewed status
+            human_labeled: Optional filter by human labeled status
+            anomalous: Optional filter by anomalous status
+            imdb_ids: Optional filter by list of specific IMDB IDs
+            prediction: Optional filter by prediction value (0 or 1)
+            cm_value: Optional filter by confusion matrix value (tn, tp, fn, fp)
+            media_title: Optional search by media title (case-insensitive partial match)
+            release_year: Optional filter by release year
+            limit: Maximum number of results to return
+            offset: Number of results to skip
+            sort_by: Column to sort by
+            sort_order: Sort order (asc/desc)
+
+        Returns:
+            Dictionary containing movie data and pagination info
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Build the WHERE clause
+                where_conditions = []
+                params = []
+                
+                if media_type:
+                    where_conditions.append("media_type = %s")
+                    params.append(media_type)
+                
+                if label:
+                    where_conditions.append("label = %s")
+                    params.append(label)
+                
+                if reviewed is not None:
+                    where_conditions.append("reviewed = %s")
+                    params.append(reviewed)
+                
+                if human_labeled is not None:
+                    where_conditions.append("human_labeled = %s")
+                    params.append(human_labeled)
+                
+                if anomalous is not None:
+                    where_conditions.append("anomalous = %s")
+                    params.append(anomalous)
+                
+                if imdb_ids:
+                    # Handle multiple IMDB IDs using IN clause
+                    placeholders = ','.join(['%s'] * len(imdb_ids))
+                    where_conditions.append(f"imdb_id IN ({placeholders})")
+                    params.extend(imdb_ids)
+                
+                if prediction is not None:
+                    where_conditions.append("prediction = %s")
+                    params.append(prediction)
+                
+                if cm_value:
+                    where_conditions.append("cm_value = %s")
+                    params.append(cm_value)
+                
+                if media_title:
+                    where_conditions.append("media_title ILIKE %s")
+                    params.append(f"%{media_title}%")
+                
+                if release_year is not None:
+                    where_conditions.append("release_year = %s")
+                    params.append(release_year)
+                
+                where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+                
+                # Count total records
+                count_query = f"SELECT COUNT(*) FROM atp.movies WHERE {where_clause}"
+                cursor.execute(count_query, params)
+                total_count = cursor.fetchone()['count']
+                
+                # Validate sort_by to prevent SQL injection
+                valid_sort_fields = [
+                    "imdb_id", "tmdb_id", "label", "media_type", "media_title", 
+                    "season", "episode", "release_year", "budget", "revenue", "runtime",
+                    "origin_country", "production_companies", "production_countries", 
+                    "production_status", "original_language", "spoken_languages",
+                    "genre", "original_media_title", "tagline", "overview",
+                    "tmdb_rating", "tmdb_votes", "rt_score", "metascore", 
+                    "imdb_rating", "imdb_votes", "human_labeled", "anomalous", 
+                    "reviewed", "prediction", "probability", "cm_value",
+                    "training_created_at", "training_updated_at", "prediction_created_at"
+                ]
+                if sort_by not in valid_sort_fields:
+                    sort_by = "training_created_at"
+                
+                # Validate sort_order
+                sort_order = sort_order.lower()
+                if sort_order not in ["asc", "desc"]:
+                    sort_order = "desc"
+                
+                # Build the main query
+                query = f"""
+                    SELECT 
+                        imdb_id, tmdb_id, label, media_type, media_title, 
+                        season, episode, release_year, budget, revenue, runtime,
+                        origin_country, production_companies, production_countries, 
+                        production_status, original_language, spoken_languages,
+                        genre, original_media_title, tagline, overview,
+                        tmdb_rating, tmdb_votes, rt_score, metascore, 
+                        imdb_rating, imdb_votes, human_labeled, anomalous, 
+                        reviewed, prediction, probability, cm_value,
+                        training_created_at, training_updated_at, prediction_created_at
+                    FROM atp.movies
+                    WHERE {where_clause}
+                    ORDER BY {sort_by} {sort_order}, imdb_id ASC
+                    LIMIT %s OFFSET %s
+                """
+                
+                params.extend([limit, offset])
+                cursor.execute(query, params)
+                
+                # Fetch all results
+                movie_data = cursor.fetchall()
+                
+                # Convert to list of dicts and handle any necessary data conversions
+                result_data = []
+                for row in movie_data:
+                    # Convert row to dict (already done by RealDictCursor)
+                    row_dict = dict(row)
+                    
+                    # Ensure datetime objects are properly serialized
+                    if row_dict.get('training_created_at'):
+                        row_dict['training_created_at'] = row_dict['training_created_at'].isoformat()
+                    if row_dict.get('training_updated_at'):
+                        row_dict['training_updated_at'] = row_dict['training_updated_at'].isoformat()
+                    if row_dict.get('prediction_created_at'):
+                        row_dict['prediction_created_at'] = row_dict['prediction_created_at'].isoformat()
+                    
+                    result_data.append(row_dict)
+                
+                # Prepare pagination info
+                pagination = {
+                    "total": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": (offset + limit) < total_count
+                }
+                
+                return {
+                    "data": result_data,
+                    "pagination": pagination
+                }
+                
+        except Exception as e:
+            logger.error(f"Error fetching movie data: {e}")
+            raise
+        finally:
+            if conn:
+                conn.close()
