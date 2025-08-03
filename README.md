@@ -34,6 +34,8 @@ The API exposes the following endpoints:
 - `GET /rear-diff/training` - Retrieves training data entries from the database
 - `PATCH /rear-diff/training/{imdb_id}` - Updates training data fields (label, human_labeled, anomalous, reviewed)
 - `GET /rear-diff/media/` - Retrieves media data entries from the database
+- `GET /rear-diff/prediction/` - Retrieves prediction data entries from the database
+- `GET /rear-diff/movies/` - Retrieves combined training and prediction data for movies
 - `GET /rear-diff/flyway` - Retrieves flyway schema history records
 
 ### GET /rear-diff/training
@@ -272,6 +274,104 @@ Retrieves media data entries from the database.
 }
 ```
 
+### GET /rear-diff/movies/
+
+Retrieves combined training and prediction data for movies from the atp.movies view.
+
+**Description**: This endpoint returns movie data that combines information from both training and prediction tables, providing a comprehensive view of movies with their labels, metadata, and ML predictions.
+
+**HTTP Method**: GET
+
+**Parameters**: No required parameters for basic retrieval of all items.
+
+**Optional Query Parameters**:
+
+**Training Filters**:
+- `media_type`: Filter by media type (e.g., "movie", "tv_show", "tv_season", "unknown")
+- `label`: Filter by label (e.g., "would_watch", "would_not_watch")
+- `reviewed`: Filter by reviewed status (boolean: true/false)
+- `human_labeled`: Filter by human labeled status (boolean: true/false)
+- `anomalous`: Filter by anomalous status (boolean: true/false)
+
+**Prediction Filters**:
+- `prediction`: Filter by prediction value (0 or 1)
+- `cm_value`: Filter by confusion matrix value ("tn", "tp", "fn", "fp")
+
+**Content Filters**:
+- `imdb_id`: Filter by specific IMDB ID(s). Single ID or comma-separated list (e.g., 'tt1234567' or 'tt1234567,tt7654321')
+- `media_title`: Search by media title (case-insensitive partial match)
+- `release_year`: Filter by release year
+
+**Pagination & Sorting**:
+- `limit`: Maximum number of records to return (1-1000, default: 100)
+- `offset`: Number of records to skip (for pagination)
+- `sort_by`: Field to sort results by (default: "training_created_at")
+- `sort_order`: Direction of sort ("asc" or "desc", default: "desc")
+
+**Response**:
+
+**Success Response (200 OK)**:
+
+```json
+{
+  "data": [
+    {
+      "imdb_id": "tt0024316",
+      "tmdb_id": 48830,
+      "label": "would_not_watch",
+      "media_type": "movie",
+      "media_title": "Me and My Pal",
+      "season": null,
+      "episode": null,
+      "release_year": 1933,
+      "budget": 0,
+      "revenue": 0,
+      "runtime": 20,
+      "origin_country": ["US"],
+      "production_companies": ["Hal Roach Studios", "Metro-Goldwyn-Mayer"],
+      "production_countries": null,
+      "production_status": "Released",
+      "original_language": "en",
+      "spoken_languages": ["en"],
+      "genre": ["Comedy"],
+      "original_media_title": "Me and My Pal",
+      "tagline": "",
+      "overview": "On the morning of his wedding to oil baron Peter Cucumber's daughter, Ollie receives a jigsaw puzzle from Stan as a wedding gift. The boys soon become absorbed in the puzzle. A taxi driver, butler, policeman and messenger boy join in as well.",
+      "tmdb_rating": 6.400,
+      "tmdb_votes": 41,
+      "rt_score": null,
+      "metascore": null,
+      "imdb_rating": 72.0,
+      "imdb_votes": 1553,
+      "human_labeled": false,
+      "anomalous": false,
+      "reviewed": true,
+      "prediction": 0,
+      "probability": 0.231111094355583,
+      "cm_value": "tn",
+      "training_created_at": "2025-07-28T08:00:24.272872Z",
+      "training_updated_at": "2025-08-02T10:00:10.457299Z",
+      "prediction_created_at": "2025-08-02T13:49:30.434632Z"
+    }
+  ],
+  "pagination": {
+    "total": 378,
+    "limit": 100,
+    "offset": 0,
+    "has_more": true
+  }
+}
+```
+
+**Error Response (500 Internal Server Error)**:
+
+```json
+{
+  "error": "Database error occurred",
+  "details": "Error details here"
+}
+```
+
 ### GET /rear-diff/flyway
 
 Retrieves flyway schema history records from the database.
@@ -453,6 +553,58 @@ curl "http://localhost:8000/rear-diff/media/?sort_by=updated_at&sort_order=desc&
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/media/?limit=10"
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/media/?media_type=movie&limit=5"
 Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/media/?sort_by=updated_at&sort_order=desc&limit=5"
+```
+
+**Get movies data:**
+
+*Get all movies*
+```bash
+# bash
+curl "http://localhost:8000/rear-diff/movies/?limit=10"
+```
+```powershell
+# powershell
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/movies/?limit=10"
+```
+
+*Get movies with specific label*
+```bash
+# bash
+curl "http://localhost:8000/rear-diff/movies/?label=would_watch&limit=5"
+```
+```powershell
+# powershell
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/movies/?label=would_watch&limit=5"
+```
+
+*Get movies with prediction filters*
+```bash
+# bash
+curl "http://localhost:8000/rear-diff/movies/?prediction=1&cm_value=tp&limit=10"
+```
+```powershell
+# powershell
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/movies/?prediction=1&cm_value=tp&limit=10"
+```
+
+*Search movies by title and year*
+```bash
+# bash
+curl "http://localhost:8000/rear-diff/movies/?media_title=batman&release_year=2022&limit=5"
+```
+```powershell
+# powershell
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/movies/?media_title=batman&release_year=2022&limit=5"
+```
+
+*Get specific movies by IMDB IDs*
+```bash
+# bash
+curl "http://localhost:8000/rear-diff/movies/?imdb_id=tt0024316,tt0037343"
+```
+```powershell
+# powershell
+Invoke-RestMethod -Uri "http://localhost:8000/rear-diff/movies/?imdb_id=tt0024316,tt0037343"
 ```
 
 **Get flyway schema history:**

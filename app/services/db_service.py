@@ -39,6 +39,7 @@ class DatabaseService:
                  human_labeled: Optional[bool] = None,
                  anomalous: Optional[bool] = None,
                  imdb_ids: Optional[List[str]] = None,
+                 media_title: Optional[str] = None,
                  limit: int = 100,
                  offset: int = 0,
                  sort_by: str = "created_at",
@@ -53,6 +54,7 @@ class DatabaseService:
             human_labeled: Optional filter by human labeled status
             anomalous: Optional filter by anomalous status
             imdb_ids: Optional filter by list of specific IMDB IDs
+            media_title: Optional filter by media title (partial match, case-insensitive)
             limit: Maximum number of records to return
             offset: Number of records to skip
             sort_by: Field to sort by
@@ -94,6 +96,11 @@ class DatabaseService:
                     placeholders = ','.join(['%s'] * len(imdb_ids))
                     where_clauses.append(f"imdb_id IN ({placeholders})")
                     params.extend(imdb_ids)
+
+                if media_title:
+                    # Case-insensitive partial match for media title
+                    where_clauses.append("LOWER(media_title) LIKE LOWER(%s)")
+                    params.append(f"%{media_title}%")
 
                 where_clause = " AND ".join(where_clauses)
                 if where_clause:
