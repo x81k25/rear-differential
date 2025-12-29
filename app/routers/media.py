@@ -3,7 +3,7 @@
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
 from app.services.db_service import DatabaseService
-from app.models.api import MediaListResponse, MediaType, PipelineStatus, RejectionStatus, MediaPipelineUpdateRequest, MediaPipelineUpdateResponse
+from app.models.api import MediaListResponse, MediaType, PipelineStatus, RejectionStatus, MediaPipelineUpdateRequest, MediaPipelineUpdateResponse, MediaDeleteResponse
 import logging
 
 logger = logging.getLogger("rear-differential.media")
@@ -116,5 +116,39 @@ def get_router():
         except Exception as e:
             logger.error(f"Error updating media pipeline status: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to update media pipeline status: {str(e)}")
+
+    @router.delete("/{hash}", response_model=MediaDeleteResponse)
+    async def delete_media(hash: str):
+        """
+        Delete a media entry by hash.
+
+        Parameters:
+        - hash: The hash of the media entry to delete (40 hex characters)
+        """
+        try:
+            logger.info(f"Deleting media entry with hash={hash}")
+
+            # Call the database service to delete the media entry
+            result = db_service.delete_media(hash=hash)
+
+            if result["success"]:
+                logger.info(f"Successfully deleted media entry with hash={hash}")
+                return MediaDeleteResponse(
+                    success=True,
+                    message=result["message"],
+                    hash=hash
+                )
+            else:
+                logger.warning(f"Failed to delete media entry with hash={hash}: {result['message']}")
+                raise HTTPException(
+                    status_code=404 if result["error"] == "Media not found" else 400,
+                    detail=result["message"]
+                )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting media entry: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete media entry: {str(e)}")
 
     return router

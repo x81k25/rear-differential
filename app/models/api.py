@@ -400,6 +400,14 @@ class MediaPipelineUpdateResponse(BaseModel):
     message: str
     error: Optional[str] = None
 
+
+class MediaDeleteResponse(BaseModel):
+    """Response model for deleting a media entry."""
+    success: bool
+    message: str
+    hash: Optional[str] = None
+    error: Optional[str] = None
+
 class PredictionResponseModel(BaseModel):
     """Model for prediction data response."""
     imdb_id: str

@@ -787,6 +787,52 @@ class DatabaseService:
             if conn:
                 conn.close()
 
+    def delete_media(self, hash: str) -> Dict[str, Any]:
+        """
+        Delete a media entry by hash.
+
+        Args:
+            hash: The hash of the media item to delete
+
+        Returns:
+            Dictionary with success status and message
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # Check if the media entry exists
+                cursor.execute("SELECT 1 FROM atp.media WHERE hash = %s", (hash,))
+                if cursor.fetchone() is None:
+                    return {
+                        "success": False,
+                        "error": "Media not found",
+                        "message": f"No media found with hash: {hash}"
+                    }
+
+                # Delete the media entry
+                cursor.execute("DELETE FROM atp.media WHERE hash = %s", (hash,))
+                conn.commit()
+
+                return {
+                    "success": True,
+                    "message": "Media deleted successfully",
+                    "hash": hash
+                }
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Error deleting media: {e}")
+            return {
+                "success": False,
+                "error": "Database error",
+                "message": str(e)
+            }
+        finally:
+            if conn:
+                conn.close()
+
     def get_movie_data(self,
                       media_type: Optional[str] = None,
                       label: Optional[str] = None,
