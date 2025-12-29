@@ -232,8 +232,11 @@ class DatabaseService:
                     where_conditions.append("hash = %s")
                     params.append(hash)
                 
-                where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
-                
+                # Always exclude soft-deleted records
+                where_conditions.append("deleted_at IS NULL")
+
+                where_clause = " AND ".join(where_conditions)
+
                 # Count total records
                 count_query = f"SELECT COUNT(*) FROM atp.media WHERE {where_clause}"
                 cursor.execute(count_query, params)
@@ -783,6 +786,66 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error fetching prediction data: {e}")
             raise
+        finally:
+            if conn:
+                conn.close()
+
+    def soft_delete_media(self, hash: str) -> Dict[str, Any]:
+        """
+        Soft delete a media entry by setting deleted_at timestamp.
+
+        Args:
+            hash: The hash of the media item to soft delete
+
+        Returns:
+            Dictionary with success status and message
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # Check if the media entry exists and is not already deleted
+                cursor.execute(
+                    "SELECT deleted_at FROM atp.media WHERE hash = %s",
+                    (hash,)
+                )
+                result = cursor.fetchone()
+                if result is None:
+                    return {
+                        "success": False,
+                        "error": "Media not found",
+                        "message": f"No media found with hash: {hash}"
+                    }
+
+                if result[0] is not None:
+                    return {
+                        "success": False,
+                        "error": "Already deleted",
+                        "message": f"Media already deleted at: {result[0]}"
+                    }
+
+                # Soft delete by setting deleted_at timestamp (UTC)
+                cursor.execute(
+                    "UPDATE atp.media SET deleted_at = (NOW() AT TIME ZONE 'UTC'), updated_at = (NOW() AT TIME ZONE 'UTC') WHERE hash = %s",
+                    (hash,)
+                )
+                conn.commit()
+
+                return {
+                    "success": True,
+                    "message": "Media soft deleted successfully",
+                    "hash": hash
+                }
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Error soft deleting media: {e}")
+            return {
+                "success": False,
+                "error": "Database error",
+                "message": str(e)
+            }
         finally:
             if conn:
                 conn.close()

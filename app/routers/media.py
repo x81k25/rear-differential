@@ -3,7 +3,8 @@
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
 from app.services.db_service import DatabaseService
-from app.models.api import MediaListResponse, MediaType, PipelineStatus, RejectionStatus, MediaPipelineUpdateRequest, MediaPipelineUpdateResponse
+from app.services.transmission_service import TransmissionService
+from app.models.api import MediaListResponse, MediaType, PipelineStatus, RejectionStatus, MediaPipelineUpdateRequest, MediaPipelineUpdateResponse, MediaDeleteResponse
 import logging
 
 logger = logging.getLogger("rear-differential.media")
@@ -12,6 +13,7 @@ def get_router():
     """Factory function to create the media router."""
     router = APIRouter()
     db_service = DatabaseService()
+    transmission_service = TransmissionService()
 
     @router.get("/", response_model=MediaListResponse)
     async def get_media(
@@ -116,5 +118,54 @@ def get_router():
         except Exception as e:
             logger.error(f"Error updating media pipeline status: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to update media pipeline status: {str(e)}")
+
+    @router.patch("/{hash}/soft_delete", response_model=MediaDeleteResponse)
+    async def soft_delete_media(hash: str):
+        """
+        Soft delete a media entry by hash. Sets deleted_at timestamp and removes from Transmission if present.
+
+        Parameters:
+        - hash: The hash of the media entry to soft delete (40 hex characters)
+        """
+        try:
+            logger.info(f"Soft deleting media entry with hash={hash}")
+
+            # Try to remove from Transmission (if present)
+            transmission_result = transmission_service.remove_torrent(hash=hash, delete_data=True)
+            if transmission_result["found"]:
+                logger.info(f"Removed torrent from Transmission: {transmission_result.get('torrent_name', hash)}")
+            elif not transmission_result["success"]:
+                logger.warning(f"Failed to remove torrent from Transmission: {transmission_result.get('message', hash)}")
+            else:
+                logger.warning(f"Torrent not found in Transmission (may already be removed): {hash}")
+
+            # Soft delete the media entry in database
+            result = db_service.soft_delete_media(hash=hash)
+
+            if result["success"]:
+                logger.info(f"Successfully soft deleted media entry with hash={hash}")
+                message = result["message"]
+                if transmission_result["found"]:
+                    message += f" (also removed from Transmission)"
+                return MediaDeleteResponse(
+                    success=True,
+                    message=message,
+                    hash=hash
+                )
+            else:
+                logger.warning(f"Failed to soft delete media entry with hash={hash}: {result['message']}")
+                status_code = 404 if result["error"] == "Media not found" else 400
+                if result["error"] == "Already deleted":
+                    status_code = 409  # Conflict
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=result["message"]
+                )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error soft deleting media entry: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete media entry: {str(e)}")
 
     return router
