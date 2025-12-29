@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     REAR_DIFF_PGSQL_PASSWORD: str = Field(description="Database password")
     REAR_DIFF_PGSQL_DATABASE: str = Field(default="postgres", description="Database name")
 
+    # Transmission RPC Configuration
+    REAR_DIFF_TRANSMISSION_HOST: str = Field(default="localhost", description="Transmission RPC host")
+    REAR_DIFF_TRANSMISSION_PORT: int = Field(default=9091, description="Transmission RPC port")
+    REAR_DIFF_TRANSMISSION_USERNAME: str = Field(default="", description="Transmission RPC username")
+    REAR_DIFF_TRANSMISSION_PASSWORD: str = Field(default="", description="Transmission RPC password")
+
     # Logging Configuration
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
 
