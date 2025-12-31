@@ -119,6 +119,57 @@ def get_router():
             logger.error(f"Error updating media pipeline status: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to update media pipeline status: {str(e)}")
 
+    @router.patch("/{hash}/finish", response_model=MediaDeleteResponse)
+    async def finish_media(hash: str):
+        """
+        Mark a media entry as complete and remove from Transmission (keeping downloaded data).
+
+        Parameters:
+        - hash: The hash of the media entry to finish (40 hex characters)
+        """
+        try:
+            logger.info(f"Finishing media entry with hash={hash}")
+
+            # Update pipeline_status to complete
+            result = db_service.update_media_pipeline(
+                hash=hash,
+                pipeline_status="complete"
+            )
+
+            if not result["success"]:
+                logger.warning(f"Failed to update pipeline status for hash={hash}: {result['message']}")
+                status_code = 404 if result["error"] == "Media not found" else 400
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=result["message"]
+                )
+
+            # Try to remove from Transmission (keep data since download is complete)
+            transmission_result = transmission_service.remove_torrent(hash=hash, delete_data=False)
+            if transmission_result["found"]:
+                logger.info(f"Removed torrent from Transmission: {transmission_result.get('torrent_name', hash)}")
+            elif not transmission_result["success"]:
+                logger.warning(f"Failed to remove torrent from Transmission: {transmission_result.get('message', hash)}")
+            else:
+                logger.info(f"Torrent not found in Transmission (may already be removed): {hash}")
+
+            message = "Media entry marked as complete"
+            if transmission_result["found"]:
+                message += f" and removed from Transmission"
+
+            logger.info(f"Successfully finished media entry with hash={hash}")
+            return MediaDeleteResponse(
+                success=True,
+                message=message,
+                hash=hash
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error finishing media entry: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to finish media entry: {str(e)}")
+
     @router.patch("/{hash}/soft_delete", response_model=MediaDeleteResponse)
     async def soft_delete_media(hash: str):
         """
