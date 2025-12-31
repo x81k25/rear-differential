@@ -104,3 +104,69 @@ class TransmissionService:
                 "error": "Connection error",
                 "message": str(e)
             }
+
+    def add_torrent(self, torrent_link: str, hash: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Add a torrent to Transmission by magnet link or torrent URL.
+
+        Args:
+            torrent_link: The magnet link or torrent file URL
+            hash: Optional hash to check if torrent already exists
+
+        Returns:
+            Dictionary with success status, already_exists flag, and message
+        """
+        try:
+            client = self.get_client()
+
+            # If hash provided, check if torrent already exists
+            if hash:
+                try:
+                    existing = client.get_torrent(hash)
+                    logger.info(f"Torrent already exists in Transmission: {existing.name}")
+                    return {
+                        "success": True,
+                        "already_exists": True,
+                        "message": f"Torrent already exists: {existing.name}",
+                        "torrent_name": existing.name
+                    }
+                except TransmissionError:
+                    # Torrent doesn't exist, proceed to add it
+                    pass
+
+            # Add the torrent
+            torrent = client.add_torrent(torrent_link)
+            logger.info(f"Added torrent to Transmission: {torrent.name}")
+
+            return {
+                "success": True,
+                "already_exists": False,
+                "message": f"Torrent added successfully: {torrent.name}",
+                "torrent_name": torrent.name
+            }
+
+        except TransmissionError as e:
+            error_msg = str(e).lower()
+            # Check if the error is because torrent already exists (duplicate)
+            if "duplicate" in error_msg or "already" in error_msg:
+                logger.info(f"Torrent already exists in Transmission (duplicate): {hash}")
+                return {
+                    "success": True,
+                    "already_exists": True,
+                    "message": "Torrent already exists in Transmission"
+                }
+            logger.error(f"Transmission error adding torrent: {e}")
+            return {
+                "success": False,
+                "already_exists": False,
+                "error": "Transmission error",
+                "message": str(e)
+            }
+        except Exception as e:
+            logger.error(f"Error adding torrent: {e}")
+            return {
+                "success": False,
+                "already_exists": False,
+                "error": "Connection error",
+                "message": str(e)
+            }
