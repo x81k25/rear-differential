@@ -226,6 +226,8 @@ class TrainingUpdateResponse(BaseModel):
     message: str
     error: Optional[str] = None
     updated_fields: Optional[Dict[str, Any]] = None
+    file_deleted: Optional[bool] = None
+    file_deletion_warning: Optional[str] = None
 
 class MediaResponseModel(BaseModel):
     """Model for media data response."""
