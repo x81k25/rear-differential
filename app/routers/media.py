@@ -4,7 +4,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
 from app.services.db_service import DatabaseService
 from app.services.transmission_service import TransmissionService
-from app.models.api import MediaListResponse, MediaType, PipelineStatus, RejectionStatus, MediaPipelineUpdateRequest, MediaPipelineUpdateResponse, MediaDeleteResponse
+from app.models.api import MediaListResponse, MediaType, PipelineStatus, RejectionStatus, MediaPipelineUpdateRequest, MediaPipelineUpdateResponse, MediaActionResponse, MediaDeleteResponse
 import logging
 
 logger = logging.getLogger("rear-differential.media")
@@ -119,7 +119,98 @@ def get_router():
             logger.error(f"Error updating media pipeline status: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to update media pipeline status: {str(e)}")
 
-    @router.patch("/{hash}/soft_delete", response_model=MediaDeleteResponse)
+    @router.patch("/{hash}/promote", response_model=MediaActionResponse)
+    async def promote_media(hash: str):
+        """
+        Promote a media entry by clearing error flags and setting pipeline_status to downloaded.
+
+        Parameters:
+        - hash: The hash of the media entry to promote (40 hex characters)
+        """
+        try:
+            logger.info(f"Promoting media entry with hash={hash}")
+
+            # Clear error flags and set pipeline_status to downloaded
+            result = db_service.update_media_pipeline(
+                hash=hash,
+                pipeline_status="downloaded",
+                error_status=False,
+                clear_error_condition=True
+            )
+
+            if not result["success"]:
+                logger.warning(f"Failed to promote media for hash={hash}: {result['message']}")
+                status_code = 404 if result["error"] == "Media not found" else 400
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=result["message"]
+                )
+
+            logger.info(f"Successfully promoted media entry with hash={hash}")
+            return MediaActionResponse(
+                success=True,
+                message="Media entry promoted to downloaded status",
+                hash=hash
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error promoting media entry: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to promote media entry: {str(e)}")
+
+    @router.patch("/{hash}/finish", response_model=MediaActionResponse)
+    async def finish_media(hash: str):
+        """
+        Mark a media entry as complete and remove from Transmission (keeping downloaded data).
+
+        Parameters:
+        - hash: The hash of the media entry to finish (40 hex characters)
+        """
+        try:
+            logger.info(f"Finishing media entry with hash={hash}")
+
+            # Update pipeline_status to complete
+            result = db_service.update_media_pipeline(
+                hash=hash,
+                pipeline_status="complete"
+            )
+
+            if not result["success"]:
+                logger.warning(f"Failed to update pipeline status for hash={hash}: {result['message']}")
+                status_code = 404 if result["error"] == "Media not found" else 400
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=result["message"]
+                )
+
+            # Try to remove from Transmission (keep data since download is complete)
+            transmission_result = transmission_service.remove_torrent(hash=hash, delete_data=False)
+            if transmission_result["found"]:
+                logger.info(f"Removed torrent from Transmission: {transmission_result.get('torrent_name', hash)}")
+            elif not transmission_result["success"]:
+                logger.warning(f"Failed to remove torrent from Transmission: {transmission_result.get('message', hash)}")
+            else:
+                logger.info(f"Torrent not found in Transmission (may already be removed): {hash}")
+
+            message = "Media entry marked as complete"
+            if transmission_result["found"]:
+                message += f" and removed from Transmission"
+
+            logger.info(f"Successfully finished media entry with hash={hash}")
+            return MediaActionResponse(
+                success=True,
+                message=message,
+                hash=hash
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error finishing media entry: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to finish media entry: {str(e)}")
+
+    @router.patch("/{hash}/soft_delete", response_model=MediaActionResponse)
     async def soft_delete_media(hash: str):
         """
         Soft delete a media entry by hash. Sets deleted_at timestamp and removes from Transmission if present.
@@ -147,7 +238,7 @@ def get_router():
                 message = result["message"]
                 if transmission_result["found"]:
                     message += f" (also removed from Transmission)"
-                return MediaDeleteResponse(
+                return MediaActionResponse(
                     success=True,
                     message=message,
                     hash=hash

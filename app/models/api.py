@@ -10,6 +10,7 @@ class MediaType(str, Enum):
     MOVIE = "movie"
     TV_SHOW = "tv_show"
     TV_SEASON = "tv_season"
+    TV_EPISODE_PACK = "tv_episode_pack"
     UNKNOWN = "unknown"
 
 class LabelType(str, Enum):
@@ -401,12 +402,15 @@ class MediaPipelineUpdateResponse(BaseModel):
     error: Optional[str] = None
 
 
-class MediaDeleteResponse(BaseModel):
-    """Response model for deleting a media entry."""
+class MediaActionResponse(BaseModel):
+    """Response model for media action endpoints (promote, finish, delete, etc.)."""
     success: bool
     message: str
     hash: Optional[str] = None
     error: Optional[str] = None
+
+# Alias for backwards compatibility
+MediaDeleteResponse = MediaActionResponse
 
 class PredictionResponseModel(BaseModel):
     """Model for prediction data response."""
