@@ -910,6 +910,61 @@ class DatabaseService:
             if conn:
                 conn.close()
 
+    def get_media_path_by_imdb_id(self, imdb_id: str) -> Dict[str, Any]:
+        """
+        Get media path information by IMDB ID.
+
+        Joins training table with media table to get path information
+        for the media item associated with the given IMDB ID.
+
+        Args:
+            imdb_id: The IMDB ID of the media item
+
+        Returns:
+            Dictionary with success status and path data or error message
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Join training with media to get path info
+                # Media may have multiple entries, get the most recent non-deleted one
+                cursor.execute(
+                    """
+                    SELECT m.parent_path, m.target_path, m.media_title, m.hash
+                    FROM atp.media m
+                    WHERE m.imdb_id = %s
+                      AND m.deleted_at IS NULL
+                    ORDER BY m.created_at DESC
+                    LIMIT 1
+                    """,
+                    (imdb_id,)
+                )
+                result = cursor.fetchone()
+
+                if result is None:
+                    return {
+                        "success": False,
+                        "error": "Media not found",
+                        "message": f"No media found with IMDB ID: {imdb_id}"
+                    }
+
+                return {
+                    "success": True,
+                    "data": dict(result)
+                }
+
+        except Exception as e:
+            logger.error(f"Error getting media path by IMDB ID: {e}")
+            return {
+                "success": False,
+                "error": "Database error",
+                "message": str(e)
+            }
+        finally:
+            if conn:
+                conn.close()
+
     def get_movie_data(self,
                       media_type: Optional[str] = None,
                       label: Optional[str] = None,

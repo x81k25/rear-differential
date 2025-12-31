@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     # Logging Configuration
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
 
+    # File Deletion Configuration
+    REAR_DIFF_FILE_DELETION_ENABLED: bool = Field(default=False, description="Enable file deletion on would_not_watch label")
+    REAR_DIFF_DB_PATH_PREFIX: str = Field(default="/d/media-cache/dev/transfer", description="Database path prefix to replace")
+    REAR_DIFF_LIBRARY_MOUNT_PATH: str = Field(default="/library", description="Container mount path for library")
+
+    # Directory paths (optional, used for reference)
+    REAR_DIFF_DOWNLOAD_DIR: str = Field(default="", description="Download directory path")
+    REAR_DIFF_MOVIE_DIR: str = Field(default="", description="Movie directory path")
+    REAR_DIFF_TV_SHOW_DIR: str = Field(default="", description="TV show directory path")
+
     class Config:
         env_file = ".env"
         case_sensitive = True

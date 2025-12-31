@@ -145,10 +145,10 @@ class TestTrainingEndpoints:
         response = requests.get(f"{base_url}/rear-diff/training?limit=1")
         assert response.status_code == 200
         data = response.json()
-        
+
         if data["data"]:
             imdb_id = data["data"][0]["imdb_id"]
-            
+
             # Update the reviewed status using unified PATCH endpoint
             update_data = {
                 "imdb_id": imdb_id,
@@ -162,6 +162,45 @@ class TestTrainingEndpoints:
             result = response.json()
             assert result["success"] is True
             assert "message" in result
+
+    def test_reject_endpoint_with_file_deletion(self, api_server, base_url):
+        """Test PATCH training reject endpoint sets would_not_watch and triggers file deletion."""
+        # First get a training record to test
+        response = requests.get(f"{base_url}/rear-diff/training?limit=1")
+        assert response.status_code == 200
+        data = response.json()
+
+        if data["data"]:
+            imdb_id = data["data"][0]["imdb_id"]
+
+            # Call the reject endpoint
+            response = requests.patch(f"{base_url}/rear-diff/training/{imdb_id}/reject")
+            assert response.status_code == 200
+            result = response.json()
+            assert result["success"] is True
+            assert "message" in result
+
+            # Verify label was set to would_not_watch
+            assert result.get("updated_fields", {}).get("label") == "would_not_watch"
+
+            # Verify file deletion fields are present in response
+            assert "file_deleted" in result or "file_deletion_warning" in result, \
+                f"Response should contain file deletion info: {result}"
+
+            if "file_deleted" in result:
+                assert isinstance(result["file_deleted"], bool)
+
+            if "file_deletion_warning" in result:
+                assert isinstance(result["file_deletion_warning"], str)
+
+            # Reset label back to would_watch
+            update_data = {"imdb_id": imdb_id, "label": "would_watch"}
+            requests.patch(f"{base_url}/rear-diff/training/{imdb_id}", json=update_data)
+
+    def test_reject_endpoint_not_found(self, api_server, base_url):
+        """Test PATCH training reject endpoint with non-existent IMDB ID."""
+        response = requests.patch(f"{base_url}/rear-diff/training/tt0000000/reject")
+        assert response.status_code == 404
 
 class TestMediaEndpoints:
     """Test media-related endpoints."""
