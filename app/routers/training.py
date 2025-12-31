@@ -88,37 +88,60 @@ def get_router():
             status_code = 404 if result.get("error") == "Training data not found" else 500
             return result
 
-        # If label was set to would_not_watch, attempt file deletion
-        if request.label == LabelType.WOULD_NOT_WATCH:
-            # Get media path for this imdb_id
-            path_result = db_service.get_media_path_by_imdb_id(imdb_id)
+        return result
 
-            if path_result.get("success"):
-                path_data = path_result["data"]
-                parent_path = path_data.get("parent_path")
-                target_path = path_data.get("target_path")
+    @router.patch("/{imdb_id}/reject", response_model=TrainingUpdateResponse)
+    async def reject_training(
+        imdb_id: str = Path(..., description="The IMDB ID of the media item (format: tt followed by 7-8 digits)")
+    ):
+        """
+        Reject a media item by setting label to would_not_watch and deleting associated files.
 
-                if parent_path and target_path:
-                    deletion_result = file_service.delete_directory(parent_path, target_path)
+        This endpoint:
+        1. Sets label to 'would_not_watch'
+        2. Sets human_labeled and reviewed to True
+        3. Attempts to delete media files from the library (if enabled)
+        """
+        # Update label to would_not_watch
+        result = db_service.update_training_fields(
+            imdb_id=imdb_id,
+            label="would_not_watch"
+        )
 
-                    if deletion_result.get("deleted"):
-                        result["file_deleted"] = True
-                        logger.info(f"Deleted files for {imdb_id}: {deletion_result.get('path')}")
-                    elif deletion_result.get("warning"):
-                        result["file_deleted"] = False
-                        result["file_deletion_warning"] = deletion_result["warning"]
-                        logger.warning(f"File deletion warning for {imdb_id}: {deletion_result['warning']}")
-                    else:
-                        # Deletion disabled or path doesn't exist
-                        result["file_deleted"] = False
-                        if deletion_result.get("message"):
-                            result["file_deletion_warning"] = deletion_result["message"]
-                else:
+        if not result.get("success", False):
+            if result.get("error") == "Training data not found":
+                raise HTTPException(status_code=404, detail=result)
+            return result
+
+        # Attempt file deletion
+        path_result = db_service.get_media_path_by_imdb_id(imdb_id)
+
+        if path_result.get("success"):
+            path_data = path_result["data"]
+            parent_path = path_data.get("parent_path")
+            target_path = path_data.get("target_path")
+
+            if parent_path and target_path:
+                deletion_result = file_service.delete_directory(parent_path, target_path)
+
+                if deletion_result.get("deleted"):
+                    result["file_deleted"] = True
+                    logger.info(f"Deleted files for {imdb_id}: {deletion_result.get('path')}")
+                elif deletion_result.get("warning"):
                     result["file_deleted"] = False
-                    result["file_deletion_warning"] = "No path information available in media table"
+                    result["file_deletion_warning"] = deletion_result["warning"]
+                    logger.warning(f"File deletion warning for {imdb_id}: {deletion_result['warning']}")
+                else:
+                    # Deletion disabled or path doesn't exist
+                    result["file_deleted"] = False
+                    if deletion_result.get("message"):
+                        result["file_deletion_warning"] = deletion_result["message"]
             else:
                 result["file_deleted"] = False
-                result["file_deletion_warning"] = path_result.get("message", "Could not retrieve media path")
+                result["file_deletion_warning"] = "No path information available in media table"
+        else:
+            result["file_deleted"] = False
+            result["file_deletion_warning"] = path_result.get("message", "Could not retrieve media path")
 
         return result
 

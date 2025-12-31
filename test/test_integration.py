@@ -163,9 +163,9 @@ class TestTrainingEndpoints:
             assert result["success"] is True
             assert "message" in result
 
-    def test_update_label_would_not_watch_with_file_deletion(self, api_server, base_url):
-        """Test PATCH training endpoint with would_not_watch label triggers file deletion logic."""
-        # First get a training record to update
+    def test_reject_endpoint_with_file_deletion(self, api_server, base_url):
+        """Test PATCH training reject endpoint sets would_not_watch and triggers file deletion."""
+        # First get a training record to test
         response = requests.get(f"{base_url}/rear-diff/training?limit=1")
         assert response.status_code == 200
         data = response.json()
@@ -173,58 +173,34 @@ class TestTrainingEndpoints:
         if data["data"]:
             imdb_id = data["data"][0]["imdb_id"]
 
-            # Update label to would_not_watch
-            update_data = {
-                "imdb_id": imdb_id,
-                "label": "would_not_watch"
-            }
-            response = requests.patch(
-                f"{base_url}/rear-diff/training/{imdb_id}",
-                json=update_data
-            )
+            # Call the reject endpoint
+            response = requests.patch(f"{base_url}/rear-diff/training/{imdb_id}/reject")
             assert response.status_code == 200
             result = response.json()
             assert result["success"] is True
             assert "message" in result
 
+            # Verify label was set to would_not_watch
+            assert result.get("updated_fields", {}).get("label") == "would_not_watch"
+
             # Verify file deletion fields are present in response
             assert "file_deleted" in result or "file_deletion_warning" in result, \
                 f"Response should contain file deletion info: {result}"
 
-            # file_deleted should be False (either disabled or path not found)
-            # This is expected in test environment
             if "file_deleted" in result:
                 assert isinstance(result["file_deleted"], bool)
 
             if "file_deletion_warning" in result:
                 assert isinstance(result["file_deletion_warning"], str)
 
-    def test_update_label_would_watch_no_file_deletion(self, api_server, base_url):
-        """Test PATCH training endpoint with would_watch label does NOT trigger file deletion."""
-        # First get a training record to update
-        response = requests.get(f"{base_url}/rear-diff/training?limit=1")
-        assert response.status_code == 200
-        data = response.json()
+            # Reset label back to would_watch
+            update_data = {"imdb_id": imdb_id, "label": "would_watch"}
+            requests.patch(f"{base_url}/rear-diff/training/{imdb_id}", json=update_data)
 
-        if data["data"]:
-            imdb_id = data["data"][0]["imdb_id"]
-
-            # Update label to would_watch
-            update_data = {
-                "imdb_id": imdb_id,
-                "label": "would_watch"
-            }
-            response = requests.patch(
-                f"{base_url}/rear-diff/training/{imdb_id}",
-                json=update_data
-            )
-            assert response.status_code == 200
-            result = response.json()
-            assert result["success"] is True
-
-            # file_deleted should NOT be present when label is would_watch
-            assert result.get("file_deleted") is None, \
-                f"file_deleted should be None for would_watch label: {result}"
+    def test_reject_endpoint_not_found(self, api_server, base_url):
+        """Test PATCH training reject endpoint with non-existent IMDB ID."""
+        response = requests.patch(f"{base_url}/rear-diff/training/tt0000000/reject")
+        assert response.status_code == 404
 
 class TestMediaEndpoints:
     """Test media-related endpoints."""
