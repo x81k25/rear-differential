@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     REAR_DIFF_DB_PATH_PREFIX: str = Field(default="/d/media-cache/dev/transfer", description="Database path prefix to replace")
     REAR_DIFF_LIBRARY_MOUNT_PATH: str = Field(default="/library", description="Container mount path for library")
 
+    # Directory paths (optional, used for reference)
+    REAR_DIFF_DOWNLOAD_DIR: str = Field(default="", description="Download directory path")
+    REAR_DIFF_MOVIE_DIR: str = Field(default="", description="Movie directory path")
+    REAR_DIFF_TV_SHOW_DIR: str = Field(default="", description="TV show directory path")
+
     class Config:
         env_file = ".env"
         case_sensitive = True
