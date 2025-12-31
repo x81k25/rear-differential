@@ -145,10 +145,10 @@ class TestTrainingEndpoints:
         response = requests.get(f"{base_url}/rear-diff/training?limit=1")
         assert response.status_code == 200
         data = response.json()
-        
+
         if data["data"]:
             imdb_id = data["data"][0]["imdb_id"]
-            
+
             # Update the reviewed status using unified PATCH endpoint
             update_data = {
                 "imdb_id": imdb_id,
@@ -162,6 +162,69 @@ class TestTrainingEndpoints:
             result = response.json()
             assert result["success"] is True
             assert "message" in result
+
+    def test_update_label_would_not_watch_with_file_deletion(self, api_server, base_url):
+        """Test PATCH training endpoint with would_not_watch label triggers file deletion logic."""
+        # First get a training record to update
+        response = requests.get(f"{base_url}/rear-diff/training?limit=1")
+        assert response.status_code == 200
+        data = response.json()
+
+        if data["data"]:
+            imdb_id = data["data"][0]["imdb_id"]
+
+            # Update label to would_not_watch
+            update_data = {
+                "imdb_id": imdb_id,
+                "label": "would_not_watch"
+            }
+            response = requests.patch(
+                f"{base_url}/rear-diff/training/{imdb_id}",
+                json=update_data
+            )
+            assert response.status_code == 200
+            result = response.json()
+            assert result["success"] is True
+            assert "message" in result
+
+            # Verify file deletion fields are present in response
+            assert "file_deleted" in result or "file_deletion_warning" in result, \
+                f"Response should contain file deletion info: {result}"
+
+            # file_deleted should be False (either disabled or path not found)
+            # This is expected in test environment
+            if "file_deleted" in result:
+                assert isinstance(result["file_deleted"], bool)
+
+            if "file_deletion_warning" in result:
+                assert isinstance(result["file_deletion_warning"], str)
+
+    def test_update_label_would_watch_no_file_deletion(self, api_server, base_url):
+        """Test PATCH training endpoint with would_watch label does NOT trigger file deletion."""
+        # First get a training record to update
+        response = requests.get(f"{base_url}/rear-diff/training?limit=1")
+        assert response.status_code == 200
+        data = response.json()
+
+        if data["data"]:
+            imdb_id = data["data"][0]["imdb_id"]
+
+            # Update label to would_watch
+            update_data = {
+                "imdb_id": imdb_id,
+                "label": "would_watch"
+            }
+            response = requests.patch(
+                f"{base_url}/rear-diff/training/{imdb_id}",
+                json=update_data
+            )
+            assert response.status_code == 200
+            result = response.json()
+            assert result["success"] is True
+
+            # file_deleted should NOT be present when label is would_watch
+            assert result.get("file_deleted") is None, \
+                f"file_deleted should be None for would_watch label: {result}"
 
 class TestMediaEndpoints:
     """Test media-related endpoints."""
