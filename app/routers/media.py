@@ -119,6 +119,46 @@ def get_router():
             logger.error(f"Error updating media pipeline status: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to update media pipeline status: {str(e)}")
 
+    @router.patch("/{hash}/promote", response_model=MediaDeleteResponse)
+    async def promote_media(hash: str):
+        """
+        Promote a media entry by clearing error flags and setting pipeline_status to downloaded.
+
+        Parameters:
+        - hash: The hash of the media entry to promote (40 hex characters)
+        """
+        try:
+            logger.info(f"Promoting media entry with hash={hash}")
+
+            # Clear error flags and set pipeline_status to downloaded
+            result = db_service.update_media_pipeline(
+                hash=hash,
+                pipeline_status="downloaded",
+                error_status=False,
+                clear_error_condition=True
+            )
+
+            if not result["success"]:
+                logger.warning(f"Failed to promote media for hash={hash}: {result['message']}")
+                status_code = 404 if result["error"] == "Media not found" else 400
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=result["message"]
+                )
+
+            logger.info(f"Successfully promoted media entry with hash={hash}")
+            return MediaDeleteResponse(
+                success=True,
+                message="Media entry promoted to downloaded status",
+                hash=hash
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error promoting media entry: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to promote media entry: {str(e)}")
+
     @router.patch("/{hash}/finish", response_model=MediaDeleteResponse)
     async def finish_media(hash: str):
         """

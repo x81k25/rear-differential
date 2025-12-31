@@ -274,6 +274,41 @@ class TestMediaEndpoints:
         result = response.json()
         assert "no media found" in result["message"].lower()
 
+    def test_promote_media_success(self, api_server, base_url):
+        """Test PATCH media promote endpoint - clears errors and sets status to downloaded."""
+        # First get a media record to test with
+        response = requests.get(f"{base_url}/rear-diff/media/?limit=1")
+        assert response.status_code == 200
+        data = response.json()
+
+        if data["data"]:
+            hash_value = data["data"][0]["hash"]
+
+            # Call the promote endpoint
+            response = requests.patch(f"{base_url}/rear-diff/media/{hash_value}/promote")
+            assert response.status_code == 200
+            result = response.json()
+            assert result["success"] is True
+            assert "message" in result
+            assert result["hash"] == hash_value
+            assert "downloaded" in result["message"].lower()
+
+            # Verify the media was updated
+            response = requests.get(f"{base_url}/rear-diff/media/?hash={hash_value}")
+            assert response.status_code == 200
+            data = response.json()
+            if data["data"]:
+                assert data["data"][0]["pipeline_status"] == "downloaded"
+                assert data["data"][0]["error_status"] is False
+
+    def test_promote_media_not_found(self, api_server, base_url):
+        """Test PATCH media promote endpoint with non-existent hash."""
+        fake_hash = "0" * 40  # Valid format but doesn't exist
+        response = requests.patch(f"{base_url}/rear-diff/media/{fake_hash}/promote")
+        assert response.status_code == 404
+        result = response.json()
+        assert "no media found" in result["message"].lower()
+
 class TestPredictionEndpoints:
     """Test prediction-related endpoints."""
     
@@ -420,6 +455,7 @@ class TestAPIDocumentation:
             "/rear-diff/training/{imdb_id}",
             "/rear-diff/media/",
             "/rear-diff/media/{hash}/pipeline",
+            "/rear-diff/media/{hash}/promote",
             "/rear-diff/media/{hash}/finish",
             "/rear-diff/prediction/",
             "/rear-diff/movies/"
