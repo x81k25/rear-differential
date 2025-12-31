@@ -601,9 +601,10 @@ class DatabaseService:
             if conn:
                 conn.close()
 
-    def update_media_pipeline(self, hash: str, pipeline_status: Optional[str] = None, 
-                             error_status: Optional[bool] = None, 
-                             rejection_status: Optional[str] = None) -> Dict[str, Any]:
+    def update_media_pipeline(self, hash: str, pipeline_status: Optional[str] = None,
+                             error_status: Optional[bool] = None,
+                             rejection_status: Optional[str] = None,
+                             clear_error_condition: bool = False) -> Dict[str, Any]:
         """
         Update the pipeline status, error status, and rejection status for a media entry.
 
@@ -612,6 +613,7 @@ class DatabaseService:
             pipeline_status: Optional new pipeline status
             error_status: Optional new error status
             rejection_status: Optional new rejection status
+            clear_error_condition: If True, sets error_condition to NULL
 
         Returns:
             Dictionary with success status and message
@@ -644,6 +646,9 @@ class DatabaseService:
                 if rejection_status is not None:
                     update_fields.append("rejection_status = %s")
                     params.append(rejection_status)
+
+                if clear_error_condition:
+                    update_fields.append("error_condition = NULL")
 
                 if not update_fields:
                     return {
