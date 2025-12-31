@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 # Define build arguments
 ARG API_HOST
@@ -20,9 +20,6 @@ ENV REAR_DIFF_PGSQL_USERNAME=${REAR_DIFF_PGSQL_USERNAME}
 ENV REAR_DIFF_PGSQL_PASSWORD=${REAR_DIFF_PGSQL_PASSWORD}
 ENV REAR_DIFF_PGSQL_DATABASE=${REAR_DIFF_PGSQL_DATABASE}
 
-# Install uv
-RUN pip install --no-cache-dir uv
-
 WORKDIR /rear-differential
 
 # Copy dependency files
@@ -39,4 +36,4 @@ COPY ./app/ ./app
 EXPOSE ${API_PORT}
 
 # Run the application
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--no-dev", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
