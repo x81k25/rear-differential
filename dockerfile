@@ -36,4 +36,4 @@ COPY ./app/ ./app
 EXPOSE ${API_PORT}
 
 # Run the application
-CMD ["uv", "run", "--no-dev", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD [".venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
