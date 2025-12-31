@@ -119,45 +119,87 @@ def get_router():
             logger.error(f"Error updating media pipeline status: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to update media pipeline status: {str(e)}")
 
-    @router.patch("/{hash}/promote", response_model=MediaActionResponse)
-    async def promote_media(hash: str):
+    @router.patch("/{hash}/approve", response_model=MediaActionResponse)
+    async def approve_media(hash: str):
         """
-        Promote a media entry by clearing error flags and setting pipeline_status to downloaded.
+        Approve a media entry for download. Sets pipeline_status to media_accepted,
+        rejection_status to accepted, error_status to False, and attempts to add
+        the torrent to Transmission for download.
 
         Parameters:
-        - hash: The hash of the media entry to promote (40 hex characters)
+        - hash: The hash of the media entry to approve (40 hex characters)
         """
         try:
-            logger.info(f"Promoting media entry with hash={hash}")
+            logger.info(f"Approving media entry with hash={hash}")
 
-            # Clear error flags and set pipeline_status to downloaded
-            result = db_service.update_media_pipeline(
+            # Get the media entry to retrieve the original_link for Transmission
+            media_result = db_service.get_media_by_hash(hash)
+            if not media_result["success"]:
+                logger.warning(f"Failed to get media for hash={hash}: {media_result['message']}")
+                status_code = 404 if media_result["error"] == "Media not found" else 400
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=media_result["message"]
+                )
+
+            media_data = media_result["data"]
+            original_link = media_data.get("original_link")
+
+            if not original_link:
+                logger.warning(f"No original_link found for hash={hash}")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Media entry has no torrent link (original_link)"
+                )
+
+            # Update database: pipeline_status=media_accepted, rejection_status=accepted, error_status=False
+            update_result = db_service.update_media_pipeline(
                 hash=hash,
-                pipeline_status="downloaded",
+                pipeline_status="media_accepted",
+                rejection_status="accepted",
                 error_status=False,
                 clear_error_condition=True
             )
 
-            if not result["success"]:
-                logger.warning(f"Failed to promote media for hash={hash}: {result['message']}")
-                status_code = 404 if result["error"] == "Media not found" else 400
+            if not update_result["success"]:
+                logger.warning(f"Failed to update media for hash={hash}: {update_result['message']}")
+                status_code = 404 if update_result["error"] == "Media not found" else 400
                 raise HTTPException(
                     status_code=status_code,
-                    detail=result["message"]
+                    detail=update_result["message"]
                 )
 
-            logger.info(f"Successfully promoted media entry with hash={hash}")
+            # Attempt to add torrent to Transmission
+            transmission_result = transmission_service.add_torrent(
+                torrent_link=original_link,
+                hash=hash
+            )
+
+            if not transmission_result["success"]:
+                # Transmission failed - return error to client
+                logger.error(f"Failed to add torrent to Transmission for hash={hash}: {transmission_result['message']}")
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Database updated but failed to add torrent to Transmission: {transmission_result['message']}"
+                )
+
+            # Success - torrent added or already exists
+            message = "Media entry approved and sent to Transmission for download"
+            if transmission_result.get("already_exists"):
+                message = "Media entry approved (torrent already in Transmission)"
+
+            logger.info(f"Successfully approved media entry with hash={hash}")
             return MediaActionResponse(
                 success=True,
-                message="Media entry promoted to downloaded status",
+                message=message,
                 hash=hash
             )
 
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error promoting media entry: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to promote media entry: {str(e)}")
+            logger.error(f"Error approving media entry: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to approve media entry: {str(e)}")
 
     @router.patch("/{hash}/finish", response_model=MediaActionResponse)
     async def finish_media(hash: str):
