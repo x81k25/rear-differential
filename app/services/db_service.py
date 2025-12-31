@@ -855,6 +855,61 @@ class DatabaseService:
             if conn:
                 conn.close()
 
+    def get_media_by_hash(self, hash: str) -> Dict[str, Any]:
+        """
+        Get a single media entry by hash.
+
+        Args:
+            hash: The hash of the media item
+
+        Returns:
+            Dictionary with success status and media data or error message
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT hash, original_link, media_title, pipeline_status,
+                           rejection_status, error_status, deleted_at
+                    FROM atp.media
+                    WHERE hash = %s
+                    """,
+                    (hash,)
+                )
+                result = cursor.fetchone()
+
+                if result is None:
+                    return {
+                        "success": False,
+                        "error": "Media not found",
+                        "message": f"No media found with hash: {hash}"
+                    }
+
+                if result.get('deleted_at') is not None:
+                    return {
+                        "success": False,
+                        "error": "Media deleted",
+                        "message": f"Media has been deleted: {hash}"
+                    }
+
+                return {
+                    "success": True,
+                    "data": dict(result)
+                }
+
+        except Exception as e:
+            logger.error(f"Error getting media by hash: {e}")
+            return {
+                "success": False,
+                "error": "Database error",
+                "message": str(e)
+            }
+        finally:
+            if conn:
+                conn.close()
+
     def get_movie_data(self,
                       media_type: Optional[str] = None,
                       label: Optional[str] = None,

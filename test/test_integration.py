@@ -274,40 +274,130 @@ class TestMediaEndpoints:
         result = response.json()
         assert "no media found" in result["message"].lower()
 
-    def test_promote_media_success(self, api_server, base_url):
-        """Test PATCH media promote endpoint - clears errors and sets status to downloaded."""
-        # First get a media record to test with
-        response = requests.get(f"{base_url}/rear-diff/media/?limit=1")
-        assert response.status_code == 200
-        data = response.json()
-
-        if data["data"]:
-            hash_value = data["data"][0]["hash"]
-
-            # Call the promote endpoint
-            response = requests.patch(f"{base_url}/rear-diff/media/{hash_value}/promote")
-            assert response.status_code == 200
-            result = response.json()
-            assert result["success"] is True
-            assert "message" in result
-            assert result["hash"] == hash_value
-            assert "downloaded" in result["message"].lower()
-
-            # Verify the media was updated
-            response = requests.get(f"{base_url}/rear-diff/media/?hash={hash_value}")
-            assert response.status_code == 200
-            data = response.json()
-            if data["data"]:
-                assert data["data"][0]["pipeline_status"] == "downloaded"
-                assert data["data"][0]["error_status"] is False
-
-    def test_promote_media_not_found(self, api_server, base_url):
-        """Test PATCH media promote endpoint with non-existent hash."""
+    def test_approve_media_not_found(self, api_server, base_url):
+        """Test PATCH media approve endpoint with non-existent hash."""
         fake_hash = "0" * 40  # Valid format but doesn't exist
-        response = requests.patch(f"{base_url}/rear-diff/media/{fake_hash}/promote")
+        response = requests.patch(f"{base_url}/rear-diff/media/{fake_hash}/approve")
         assert response.status_code == 404
         result = response.json()
         assert "no media found" in result["message"].lower()
+
+
+class TestApproveEndpoint:
+    """Integration tests for the approve endpoint with Transmission."""
+
+    def test_approve_media_with_link(self, api_server, base_url):
+        """Test PATCH media approve endpoint with a media entry that has original_link."""
+        # Get a media record that has an original_link
+        response = requests.get(f"{base_url}/rear-diff/media/?limit=50")
+        assert response.status_code == 200
+        data = response.json()
+
+        # Find a record with original_link
+        media_with_link = None
+        for item in data["data"]:
+            if item.get("original_link"):
+                media_with_link = item
+                break
+
+        if media_with_link:
+            hash_value = media_with_link["hash"]
+
+            # Call the approve endpoint
+            response = requests.patch(f"{base_url}/rear-diff/media/{hash_value}/approve")
+
+            # Should be 200 (success) or 502 (transmission error, which is still valid test)
+            if response.status_code == 200:
+                result = response.json()
+                assert result["success"] is True
+                assert "message" in result
+                assert result["hash"] == hash_value
+                assert "approved" in result["message"].lower() or "transmission" in result["message"].lower()
+
+                # Verify the database was updated correctly
+                response = requests.get(f"{base_url}/rear-diff/media/?hash={hash_value}")
+                assert response.status_code == 200
+                data = response.json()
+                if data["data"]:
+                    assert data["data"][0]["pipeline_status"] == "media_accepted"
+                    assert data["data"][0]["rejection_status"] == "accepted"
+                    assert data["data"][0]["error_status"] is False
+            elif response.status_code == 502:
+                # Transmission error - this is still a valid test result
+                result = response.json()
+                assert "transmission" in result["message"].lower()
+            else:
+                pytest.fail(f"Unexpected status code {response.status_code}: {response.text}")
+        else:
+            pytest.skip("No media with original_link found in database")
+
+    def test_approve_media_without_link(self, api_server, base_url):
+        """Test PATCH media approve endpoint with a media entry that has no original_link."""
+        # Get a media record that has no original_link
+        response = requests.get(f"{base_url}/rear-diff/media/?limit=100")
+        assert response.status_code == 200
+        data = response.json()
+
+        # Find a record without original_link
+        media_without_link = None
+        for item in data["data"]:
+            if not item.get("original_link"):
+                media_without_link = item
+                break
+
+        if media_without_link:
+            hash_value = media_without_link["hash"]
+
+            # Call the approve endpoint - should fail with 400
+            response = requests.patch(f"{base_url}/rear-diff/media/{hash_value}/approve")
+            assert response.status_code == 400
+            result = response.json()
+            assert "no torrent link" in result["message"].lower() or "original_link" in result["message"].lower()
+        else:
+            pytest.skip("No media without original_link found in database")
+
+    def test_approve_media_verifies_db_update(self, api_server, base_url):
+        """Test that approve endpoint correctly updates all database fields."""
+        # Get a media record with original_link
+        response = requests.get(f"{base_url}/rear-diff/media/?limit=50")
+        assert response.status_code == 200
+        data = response.json()
+
+        media_with_link = None
+        for item in data["data"]:
+            if item.get("original_link"):
+                media_with_link = item
+                break
+
+        if media_with_link:
+            hash_value = media_with_link["hash"]
+
+            # Store original values
+            original_pipeline_status = media_with_link.get("pipeline_status")
+            original_rejection_status = media_with_link.get("rejection_status")
+
+            # Call approve endpoint
+            response = requests.patch(f"{base_url}/rear-diff/media/{hash_value}/approve")
+
+            if response.status_code == 200:
+                # Verify all expected DB fields were updated
+                response = requests.get(f"{base_url}/rear-diff/media/?hash={hash_value}")
+                assert response.status_code == 200
+                data = response.json()
+
+                if data["data"]:
+                    updated_media = data["data"][0]
+                    assert updated_media["pipeline_status"] == "media_accepted"
+                    assert updated_media["rejection_status"] == "accepted"
+                    assert updated_media["error_status"] is False
+                    # error_condition should be cleared (None/null)
+                    assert updated_media.get("error_condition") is None
+            # 502 is acceptable if Transmission is not available
+            elif response.status_code != 502:
+                pytest.fail(f"Unexpected status code {response.status_code}: {response.text}")
+        else:
+            pytest.skip("No media with original_link found in database")
+
 
 class TestPredictionEndpoints:
     """Test prediction-related endpoints."""
@@ -455,7 +545,7 @@ class TestAPIDocumentation:
             "/rear-diff/training/{imdb_id}",
             "/rear-diff/media/",
             "/rear-diff/media/{hash}/pipeline",
-            "/rear-diff/media/{hash}/promote",
+            "/rear-diff/media/{hash}/approve",
             "/rear-diff/media/{hash}/finish",
             "/rear-diff/prediction/",
             "/rear-diff/movies/"
