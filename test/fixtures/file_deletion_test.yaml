@@ -1,0 +1,121 @@
+# Test fixture for file deletion E2E test
+# Source file copied into test/fixtures/media/
+
+test_file:
+  # Relative to project root
+  source_dir: test/fixtures/media
+  filename: Frailty.2001.1080p.BluRay.x264.YIFY.mp4
+  size_bytes: 1552152733
+  # Target directory name (will be created in cache/library paths)
+  target_dir: test-file-deletion-e2e-2002-1080p
+  permissions:
+    user: x81-media
+    group: x81-group
+    mode: "0775"
+
+# Destination paths derived from env vars:
+# - ${REAR_DIFF_MEDIA_CACHE_PATH}complete/${target_dir}/
+# - ${REAR_DIFF_MEDIA_LIBRARY_PATH_MOVIES}${target_dir}/
+
+# Expected values for atp.media table
+media:
+  hash: "0000000000000000000000000000000099999901"  # 40-char hex, test imdb suffix
+  media_type: movie
+  media_title: "Test Movie - File Deletion E2E"
+  season: null
+  episode: null
+  release_year: 2002
+  pipeline_status: complete
+  error_status: false
+  error_condition: null
+  rejection_status: accepted
+  rejection_reason: null
+  # parent_path will be set to ${REAR_DIFF_MEDIA_LIBRARY_PATH_MOVIES} at runtime
+  parent_path: null
+  target_path: test-file-deletion-e2e-2002-1080p
+  original_title: "Test File Deletion E2E (2002) [1080p]"
+  original_path: "Test File Deletion E2E (2002) [1080p]"
+  original_link: null
+  rss_source: null
+  uploader: null
+  imdb_id: tt9999901
+  tmdb_id: 9999901
+  budget: 11000000
+  revenue: 17400000
+  runtime: 100
+  origin_country:
+    - US
+  production_companies:
+    - "Test Productions"
+  production_countries: null
+  production_status: Released
+  original_language: en
+  spoken_languages:
+    - en
+  genre:
+    - Drama
+    - Thriller
+  original_media_title: "Test Movie - File Deletion E2E"
+  tagline: "Testing file deletion."
+  overview: "A test movie used for E2E testing of the file deletion feature."
+  tmdb_rating: 7.0
+  tmdb_votes: 1000
+  rt_score: 75
+  metascore: 64
+  imdb_rating: 72.0
+  imdb_votes: 50000
+  resolution: 1080p
+  video_codec: x264
+  upload_type: null
+  audio_codec: null
+
+# Expected values for atp.training table
+training:
+  imdb_id: tt9999901
+  tmdb_id: 9999901
+  label: would_watch
+  human_labeled: false
+  anomalous: false
+  media_type: movie
+  media_title: "Test Movie - File Deletion E2E"
+  season: null
+  episode: null
+  release_year: 2002
+  budget: 11000000
+  revenue: 17400000
+  runtime: 100
+  origin_country:
+    - US
+  production_companies:
+    - "Test Productions"
+  production_countries: null
+  production_status: Released
+  original_language: en
+  spoken_languages:
+    - en
+  genre:
+    - Drama
+    - Thriller
+  original_media_title: "Test Movie - File Deletion E2E"
+  tagline: "Testing file deletion."
+  overview: "A test movie used for E2E testing of the file deletion feature."
+  tmdb_rating: 7.0
+  tmdb_votes: 1000
+  rt_score: 75
+  metascore: 64
+  imdb_rating: 72.0
+  imdb_votes: 50000
+  reviewed: false
+
+# Expected test behavior
+expected:
+  post_rejection_label: would_not_watch
+  post_rejection_human_labeled: true
+  post_rejection_reviewed: true
+  file_should_be_deleted: true
+
+  # Paths checked for deletion (in order):
+  # 1. ${REAR_DIFF_MEDIA_CACHE_PATH}incomplete/${target_dir} (no movies/tv subdirs in cache)
+  # 2. ${REAR_DIFF_MEDIA_CACHE_PATH}complete/${target_dir} (no movies/tv subdirs in cache)
+  # 3. ${REAR_DIFF_MEDIA_LIBRARY_PATH_MOVIES}${target_dir} (library path includes movies/)
+  # 4. Original DB path (parent_path + target_path) - fallback

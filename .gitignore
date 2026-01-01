@@ -117,3 +117,6 @@ temp/
 CLAUDE.md
 .claude/
 claude-*
+
+# Test fixtures - large media files
+test/fixtures/media/
