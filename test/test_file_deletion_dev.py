@@ -215,7 +215,7 @@ class TransmissionHelper:
             client = self.get_client()
             client.get_torrent(torrent_hash)
             return True
-        except TransmissionError:
+        except (TransmissionError, KeyError, Exception):
             return False
 
     def remove_torrent(self, torrent_hash: str) -> bool:
