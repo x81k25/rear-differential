@@ -152,7 +152,7 @@ def get_router():
         if original_link:
             # Extract hash from original_link (last segment of URL path)
             try:
-                torrent_hash = original_link.rstrip('/').split('/')[-1]
+                torrent_hash = original_link.rstrip('/').split('/')[-1].lower()
                 if torrent_hash:
                     torrent_result = transmission_service.remove_torrent(torrent_hash, delete_data=False)
                     result["torrent_removed"] = torrent_result.get("found", False)
