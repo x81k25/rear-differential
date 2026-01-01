@@ -931,7 +931,7 @@ class DatabaseService:
                 # Media may have multiple entries, get the most recent non-deleted one
                 cursor.execute(
                     """
-                    SELECT m.parent_path, m.target_path, m.media_title, m.hash
+                    SELECT m.parent_path, m.target_path, m.media_title, m.hash, m.original_link
                     FROM atp.media m
                     WHERE m.imdb_id = %s
                       AND m.deleted_at IS NULL

@@ -228,6 +228,7 @@ class TrainingUpdateResponse(BaseModel):
     updated_fields: Optional[Dict[str, Any]] = None
     file_deleted: Optional[bool] = None
     file_deletion_warning: Optional[str] = None
+    torrent_removed: Optional[bool] = None
 
 class MediaResponseModel(BaseModel):
     """Model for media data response."""
