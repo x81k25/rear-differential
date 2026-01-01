@@ -5,6 +5,7 @@ from typing import Optional, List
 from app.models.api import TrainingListResponse, TrainingUpdateRequest, TrainingUpdateResponse, MediaType, LabelType
 from app.services.db_service import DatabaseService
 from app.services.file_service import FileService
+from app.services.transmission_service import TransmissionService
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,7 @@ def get_router():
     router = APIRouter()
     db_service = DatabaseService()
     file_service = FileService()
+    transmission_service = TransmissionService()
 
     @router.get("", response_model=TrainingListResponse)
     async def get_training_data(
@@ -90,17 +92,18 @@ def get_router():
 
         return result
 
-    @router.patch("/{imdb_id}/reject", response_model=TrainingUpdateResponse)
-    async def reject_training(
+    @router.patch("/{imdb_id}/would_not_watch", response_model=TrainingUpdateResponse)
+    async def would_not_watch_training(
         imdb_id: str = Path(..., description="The IMDB ID of the media item (format: tt followed by 7-8 digits)")
     ):
         """
-        Reject a media item by setting label to would_not_watch and deleting associated files.
+        Mark a media item as would_not_watch and delete associated files.
 
         This endpoint:
         1. Sets label to 'would_not_watch'
         2. Sets human_labeled and reviewed to True
         3. Attempts to delete media files from the library (if enabled)
+        4. Attempts to remove torrent from Transmission
         """
         # Update label to would_not_watch
         result = db_service.update_training_fields(
@@ -115,11 +118,13 @@ def get_router():
 
         # Attempt file deletion
         path_result = db_service.get_media_path_by_imdb_id(imdb_id)
+        original_link = None
 
         if path_result.get("success"):
             path_data = path_result["data"]
             parent_path = path_data.get("parent_path")
             target_path = path_data.get("target_path")
+            original_link = path_data.get("original_link")
 
             if parent_path and target_path:
                 deletion_result = file_service.delete_directory(parent_path, target_path)
@@ -142,6 +147,24 @@ def get_router():
         else:
             result["file_deleted"] = False
             result["file_deletion_warning"] = path_result.get("message", "Could not retrieve media path")
+
+        # Attempt torrent removal from Transmission
+        result["torrent_removed"] = False
+        if original_link:
+            # Extract hash from original_link (last segment of URL path)
+            try:
+                torrent_hash = original_link.rstrip('/').split('/')[-1].lower()
+                if torrent_hash:
+                    torrent_result = transmission_service.remove_torrent(torrent_hash, delete_data=False)
+                    result["torrent_removed"] = torrent_result.get("found", False)
+                    if torrent_result.get("found"):
+                        logger.debug(f"Removed torrent for {imdb_id}: {torrent_hash}")
+                    else:
+                        logger.debug(f"Torrent not found in Transmission for {imdb_id}: {torrent_hash}")
+            except Exception as e:
+                logger.debug(f"Error removing torrent for {imdb_id}: {e}")
+        else:
+            logger.debug(f"No original_link found for {imdb_id}, skipping torrent removal")
 
         return result
 
