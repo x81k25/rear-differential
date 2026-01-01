@@ -209,9 +209,9 @@ class APIServer:
                 self.process.kill()
             self.process = None
 
-    def reject(self, imdb_id: str) -> dict:
-        """Call the reject endpoint."""
-        resp = requests.patch(f"{self.base_url}/rear-diff/training/{imdb_id}/reject")
+    def would_not_watch(self, imdb_id: str) -> dict:
+        """Call the would_not_watch endpoint."""
+        resp = requests.patch(f"{self.base_url}/rear-diff/training/{imdb_id}/would_not_watch")
         resp.raise_for_status()
         return resp.json()
 
@@ -386,7 +386,7 @@ class TestFileDeletion:
         self.api.start()
 
         # 5. Call reject endpoint
-        result = self.api.reject(TEST_IMDB_ID)
+        result = self.api.would_not_watch(TEST_IMDB_ID)
 
         # 6. Verify response
         assert result["success"] is True, f"API returned failure: {result}"
@@ -419,7 +419,7 @@ class TestFileDeletion:
         self.api.start()
 
         # 4. Call reject endpoint
-        result = self.api.reject(TEST_IMDB_ID)
+        result = self.api.would_not_watch(TEST_IMDB_ID)
 
         # 5. Verify response
         assert result["success"] is True, f"API returned failure: {result}"
@@ -437,7 +437,7 @@ class TestFileDeletion:
         self.api.start()
 
         # 3. Call reject endpoint
-        result = self.api.reject(TEST_IMDB_ID)
+        result = self.api.would_not_watch(TEST_IMDB_ID)
 
         # 4. Should succeed even without file
         assert result["success"] is True, f"API returned failure: {result}"
@@ -456,14 +456,14 @@ class TestFileDeletion:
         self.api.start()
 
         # 2. First rejection
-        result1 = self.api.reject(TEST_IMDB_ID)
+        result1 = self.api.would_not_watch(TEST_IMDB_ID)
         assert result1["success"] is True
 
         # 3. Reset for second call (simulate idempotency test)
         # Note: Don't reset label, call reject again on already-rejected item
 
         # 4. Second rejection should still succeed
-        result2 = self.api.reject(TEST_IMDB_ID)
+        result2 = self.api.would_not_watch(TEST_IMDB_ID)
         assert result2["success"] is True
 
         # 5. Label should still be would_not_watch
@@ -484,7 +484,7 @@ class TestFileDeletion:
         self.api.start()
 
         # 4. Call reject endpoint
-        result = self.api.reject(TEST_IMDB_ID)
+        result = self.api.would_not_watch(TEST_IMDB_ID)
 
         # 5. Verify response indicates torrent was removed
         assert result["success"] is True, f"API returned failure: {result}"

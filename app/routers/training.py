@@ -92,17 +92,18 @@ def get_router():
 
         return result
 
-    @router.patch("/{imdb_id}/reject", response_model=TrainingUpdateResponse)
-    async def reject_training(
+    @router.patch("/{imdb_id}/would_not_watch", response_model=TrainingUpdateResponse)
+    async def would_not_watch_training(
         imdb_id: str = Path(..., description="The IMDB ID of the media item (format: tt followed by 7-8 digits)")
     ):
         """
-        Reject a media item by setting label to would_not_watch and deleting associated files.
+        Mark a media item as would_not_watch and delete associated files.
 
         This endpoint:
         1. Sets label to 'would_not_watch'
         2. Sets human_labeled and reviewed to True
         3. Attempts to delete media files from the library (if enabled)
+        4. Attempts to remove torrent from Transmission
         """
         # Update label to would_not_watch
         result = db_service.update_training_fields(
