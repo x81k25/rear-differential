@@ -1,25 +1,20 @@
 """
-E2E Integration Test for File Deletion Feature
+E2E Integration Test for File Deletion Feature - Dev K8s API
 
-This test works with pre-existing test data (tt9999901) in the database.
-The rear_diff user only has UPDATE permission on atp.training and atp.media,
-so we cannot INSERT or DELETE test records programmatically.
+This test targets the deployed dev API at http://192.168.50.2:30812/rear-diff/
+instead of starting a local server. Uses same DB and file paths as local test.
 
 Test flow:
 1. Reset training label via UPDATE (reset to would_watch)
 2. Copy test media file to cache/library paths
 3. Add torrent to Transmission (for torrent removal tests)
-4. Start the API server
-5. Call the /reject endpoint
-6. Verify files are deleted
-7. Verify torrent is removed from Transmission
-8. Clean up test files (not DB records)
+4. Call the /reject endpoint on dev K8s API
+5. Verify files are deleted
+6. Verify torrent is removed from Transmission
+7. Clean up test files (not DB records)
 """
 import os
 import shutil
-import subprocess
-import time
-import signal
 import requests
 import psycopg2
 import yaml
@@ -40,6 +35,9 @@ TEST_IMDB_ID = "tt9999901"
 TEST_HASH = "0000000000000000000000000000000099999901"
 TEST_TORRENT_HASH = "55af51b9883b2e29e02fc728113747c706e480e3"
 TEST_TORRENT_LINK = "https://yts.lt/torrent/download/55AF51B9883B2E29E02FC728113747C706E480E3"
+
+# Dev K8s API URL
+DEV_API_BASE_URL = "http://192.168.50.2:30812/rear-diff"
 
 
 def load_env():
@@ -160,58 +158,23 @@ class DatabaseHelper:
             conn.close()
 
 
-class APIServer:
-    """Helper class to manage the API server process."""
+class DevAPIClient:
+    """Client for dev K8s API."""
 
-    def __init__(self):
-        self.process: Optional[subprocess.Popen] = None
-        self.base_url = "http://localhost:8000"
+    def __init__(self, base_url: str = DEV_API_BASE_URL):
+        self.base_url = base_url
 
-    def start(self, timeout: int = 15):
-        """Start the API server."""
-        # Kill any existing process on port 8000
-        subprocess.run(["fuser", "-k", "8000/tcp"], capture_output=True)
-        time.sleep(1)
-
-        # Start the server
-        self.process = subprocess.Popen(
-            ["uv", "run", "python", "-m", "app.main"],
-            cwd=PROJECT_ROOT,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        # Wait for server to be ready
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            try:
-                resp = requests.get(f"{self.base_url}/rear-diff/health", timeout=1)
-                if resp.status_code == 200:
-                    return True
-            except requests.exceptions.RequestException:
-                pass
-            time.sleep(0.5)
-
-        # If we get here, server didn't start - get error output
-        if self.process:
-            stdout, stderr = self.process.communicate(timeout=2)
-            raise RuntimeError(
-                f"API server failed to start.\nstdout: {stdout.decode()}\nstderr: {stderr.decode()}"
-            )
-
-    def stop(self):
-        """Stop the API server."""
-        if self.process:
-            self.process.send_signal(signal.SIGTERM)
-            try:
-                self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-            self.process = None
+    def health_check(self) -> bool:
+        """Check if dev API is healthy."""
+        try:
+            resp = requests.get(f"{self.base_url}/health", timeout=5)
+            return resp.status_code == 200
+        except requests.exceptions.RequestException:
+            return False
 
     def reject(self, imdb_id: str) -> dict:
         """Call the reject endpoint."""
-        resp = requests.patch(f"{self.base_url}/rear-diff/training/{imdb_id}/reject")
+        resp = requests.patch(f"{self.base_url}/training/{imdb_id}/reject", timeout=10)
         resp.raise_for_status()
         return resp.json()
 
@@ -265,8 +228,8 @@ class TransmissionHelper:
             return True  # Not found is OK
 
 
-class TestFileDeletion:
-    """E2E test for file deletion feature."""
+class TestFileDeletionDev:
+    """E2E test for file deletion feature against dev K8s API."""
 
     @pytest.fixture(autouse=True)
     def setup(self):
@@ -274,8 +237,12 @@ class TestFileDeletion:
         self.env_vars = load_env()
         self.fixture = load_fixture()
         self.db = DatabaseHelper(self.env_vars)
-        self.api = APIServer()
+        self.api = DevAPIClient()
         self.transmission = TransmissionHelper(self.env_vars)
+
+        # Check dev API is reachable
+        if not self.api.health_check():
+            pytest.skip("Dev API not reachable at " + DEV_API_BASE_URL)
 
         # Get paths from env vars
         self.cache_path = self.env_vars.get("REAR_DIFF_MEDIA_CACHE_PATH", "").rstrip(
@@ -306,14 +273,11 @@ class TestFileDeletion:
 
         yield
 
-        # Cleanup: stop API and remove test files (NOT DB records)
+        # Cleanup: remove test files (NOT DB records)
         self.cleanup_files()
 
     def cleanup_files(self):
         """Clean up test files (not database records)."""
-        # Stop API server
-        self.api.stop()
-
         # Delete test files from all locations
         paths_to_clean = [
             os.path.join(self.cache_path, "incomplete", self.target_dir),
@@ -366,7 +330,7 @@ class TestFileDeletion:
         return dest_path
 
     def test_delete_from_library(self):
-        """Test file deletion from library path."""
+        """Test file deletion from library path via dev K8s API."""
         if not self.library_movies_path:
             pytest.skip("REAR_DIFF_MEDIA_LIBRARY_PATH_MOVIES not configured")
 
@@ -382,27 +346,24 @@ class TestFileDeletion:
         assert record is not None, "Training record not found"
         assert record["label"] == "would_watch", f"Expected 'would_watch', got '{record['label']}'"
 
-        # 4. Start API server
-        self.api.start()
-
-        # 5. Call reject endpoint
+        # 4. Call reject endpoint on dev API
         result = self.api.reject(TEST_IMDB_ID)
 
-        # 6. Verify response
+        # 5. Verify response
         assert result["success"] is True, f"API returned failure: {result}"
         assert result["file_deleted"] is True, f"File was not deleted: {result}"
 
-        # 7. Verify file is actually deleted
+        # 6. Verify file is actually deleted
         assert not os.path.exists(dest_path), f"Directory still exists: {dest_path}"
 
-        # 8. Verify database was updated
+        # 7. Verify database was updated
         record = self.db.get_training_record(TEST_IMDB_ID)
         assert record["label"] == self.expected["post_rejection_label"]
         assert record["human_labeled"] == self.expected["post_rejection_human_labeled"]
         assert record["reviewed"] == self.expected["post_rejection_reviewed"]
 
     def test_delete_from_cache_complete(self):
-        """Test file deletion from cache complete path."""
+        """Test file deletion from cache complete path via dev K8s API."""
         if not self.cache_path:
             pytest.skip("REAR_DIFF_MEDIA_CACHE_PATH not configured")
 
@@ -415,17 +376,14 @@ class TestFileDeletion:
         # 2. Update media parent_path to point to cache/complete
         self.db.update_media_parent_path(TEST_HASH, complete_path)
 
-        # 3. Start API server
-        self.api.start()
-
-        # 4. Call reject endpoint
+        # 3. Call reject endpoint on dev API
         result = self.api.reject(TEST_IMDB_ID)
 
-        # 5. Verify response
+        # 4. Verify response
         assert result["success"] is True, f"API returned failure: {result}"
         assert result["file_deleted"] is True, f"File was not deleted: {result}"
 
-        # 6. Verify file is actually deleted
+        # 5. Verify file is actually deleted
         assert not os.path.exists(dest_path), f"Directory still exists: {dest_path}"
 
     def test_delete_nonexistent_file_still_updates_label(self):
@@ -433,40 +391,31 @@ class TestFileDeletion:
         # 1. Update media parent_path to a nonexistent location
         self.db.update_media_parent_path(TEST_HASH, "/nonexistent/path")
 
-        # 2. Start API server
-        self.api.start()
-
-        # 3. Call reject endpoint
+        # 2. Call reject endpoint on dev API
         result = self.api.reject(TEST_IMDB_ID)
 
-        # 4. Should succeed even without file
+        # 3. Should succeed even without file
         assert result["success"] is True, f"API returned failure: {result}"
         # file_deleted should be False since file doesn't exist
         assert result["file_deleted"] is False, f"Expected file_deleted=False: {result}"
 
-        # 5. Verify database was still updated
+        # 4. Verify database was still updated
         record = self.db.get_training_record(TEST_IMDB_ID)
         assert record["label"] == self.expected["post_rejection_label"]
         assert record["human_labeled"] is True
         assert record["reviewed"] is True
 
     def test_reject_already_rejected(self):
-        """Test calling reject on an already rejected item."""
-        # 1. Start API server
-        self.api.start()
-
-        # 2. First rejection
+        """Test calling reject on an already rejected item via dev K8s API."""
+        # 1. First rejection
         result1 = self.api.reject(TEST_IMDB_ID)
         assert result1["success"] is True
 
-        # 3. Reset for second call (simulate idempotency test)
-        # Note: Don't reset label, call reject again on already-rejected item
-
-        # 4. Second rejection should still succeed
+        # 2. Second rejection should still succeed (idempotent)
         result2 = self.api.reject(TEST_IMDB_ID)
         assert result2["success"] is True
 
-        # 5. Label should still be would_not_watch
+        # 3. Label should still be would_not_watch
         record = self.db.get_training_record(TEST_IMDB_ID)
         assert record["label"] == "would_not_watch"
 
@@ -480,17 +429,14 @@ class TestFileDeletion:
         exists_before = self.transmission.torrent_exists(TEST_TORRENT_HASH)
         assert exists_before, "Torrent should exist in Transmission before reject"
 
-        # 3. Start API server
-        self.api.start()
-
-        # 4. Call reject endpoint
+        # 3. Call reject endpoint
         result = self.api.reject(TEST_IMDB_ID)
 
-        # 5. Verify response indicates torrent was removed
+        # 4. Verify response indicates torrent was removed
         assert result["success"] is True, f"API returned failure: {result}"
         assert result["torrent_removed"] is True, f"Torrent was not removed: {result}"
 
-        # 6. Verify torrent no longer exists in Transmission
+        # 5. Verify torrent no longer exists in Transmission
         exists_after = self.transmission.torrent_exists(TEST_TORRENT_HASH)
         assert not exists_after, "Torrent should not exist in Transmission after reject"
 
