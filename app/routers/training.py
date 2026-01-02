@@ -168,4 +168,27 @@ def get_router():
 
         return result
 
+    @router.patch("/{imdb_id}/would_watch", response_model=TrainingUpdateResponse)
+    async def would_watch_training(
+        imdb_id: str = Path(..., description="The IMDB ID of the media item (format: tt followed by 7-8 digits)")
+    ):
+        """
+        Mark a media item as would_watch.
+
+        This endpoint:
+        1. Sets label to 'would_watch'
+        2. Sets human_labeled and reviewed to True
+        """
+        result = db_service.update_training_fields(
+            imdb_id=imdb_id,
+            label="would_watch"
+        )
+
+        if not result.get("success", False):
+            if result.get("error") == "Training data not found":
+                raise HTTPException(status_code=404, detail=result)
+            return result
+
+        return result
+
     return router

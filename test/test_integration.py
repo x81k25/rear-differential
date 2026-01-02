@@ -163,8 +163,8 @@ class TestTrainingEndpoints:
             assert result["success"] is True
             assert "message" in result
 
-    def test_reject_endpoint_with_file_deletion(self, api_server, base_url):
-        """Test PATCH training reject endpoint sets would_not_watch and triggers file deletion."""
+    def test_would_not_watch_endpoint(self, api_server, base_url):
+        """Test PATCH training would_not_watch endpoint sets label and triggers file deletion."""
         # First get a training record to test
         response = requests.get(f"{base_url}/rear-diff/training?limit=1")
         assert response.status_code == 200
@@ -173,8 +173,8 @@ class TestTrainingEndpoints:
         if data["data"]:
             imdb_id = data["data"][0]["imdb_id"]
 
-            # Call the reject endpoint
-            response = requests.patch(f"{base_url}/rear-diff/training/{imdb_id}/reject")
+            # Call the would_not_watch endpoint
+            response = requests.patch(f"{base_url}/rear-diff/training/{imdb_id}/would_not_watch")
             assert response.status_code == 200
             result = response.json()
             assert result["success"] is True
@@ -197,9 +197,34 @@ class TestTrainingEndpoints:
             update_data = {"imdb_id": imdb_id, "label": "would_watch"}
             requests.patch(f"{base_url}/rear-diff/training/{imdb_id}", json=update_data)
 
-    def test_reject_endpoint_not_found(self, api_server, base_url):
-        """Test PATCH training reject endpoint with non-existent IMDB ID."""
-        response = requests.patch(f"{base_url}/rear-diff/training/tt0000000/reject")
+    def test_would_not_watch_endpoint_not_found(self, api_server, base_url):
+        """Test PATCH training would_not_watch endpoint with non-existent IMDB ID."""
+        response = requests.patch(f"{base_url}/rear-diff/training/tt0000000/would_not_watch")
+        assert response.status_code == 404
+
+    def test_would_watch_endpoint(self, api_server, base_url):
+        """Test PATCH training would_watch endpoint sets label."""
+        # First get a training record to test
+        response = requests.get(f"{base_url}/rear-diff/training?limit=1")
+        assert response.status_code == 200
+        data = response.json()
+
+        if data["data"]:
+            imdb_id = data["data"][0]["imdb_id"]
+
+            # Call the would_watch endpoint
+            response = requests.patch(f"{base_url}/rear-diff/training/{imdb_id}/would_watch")
+            assert response.status_code == 200
+            result = response.json()
+            assert result["success"] is True
+            assert "message" in result
+
+            # Verify label was set to would_watch
+            assert result.get("updated_fields", {}).get("label") == "would_watch"
+
+    def test_would_watch_endpoint_not_found(self, api_server, base_url):
+        """Test PATCH training would_watch endpoint with non-existent IMDB ID."""
+        response = requests.patch(f"{base_url}/rear-diff/training/tt0000000/would_watch")
         assert response.status_code == 404
 
 class TestMediaEndpoints:
