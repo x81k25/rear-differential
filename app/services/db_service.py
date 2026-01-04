@@ -244,16 +244,11 @@ class DatabaseService:
                 
                 # Build the main query
                 query = f"""
-                    SELECT 
+                    SELECT
                         hash, media_type, media_title, season, episode, release_year,
                         pipeline_status, error_status, error_condition, rejection_status, rejection_reason,
                         parent_path, target_path, original_title, original_path, original_link,
                         rss_source, uploader, imdb_id, tmdb_id,
-                        budget, revenue, runtime,
-                        origin_country, production_companies, production_countries, production_status,
-                        original_language, spoken_languages,
-                        genre, original_media_title, tagline, overview,
-                        tmdb_rating, tmdb_votes, rt_score, metascore, imdb_rating, imdb_votes,
                         resolution, video_codec, upload_type, audio_codec,
                         created_at, updated_at
                     FROM atp.media
