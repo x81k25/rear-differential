@@ -230,6 +230,19 @@ class TrainingUpdateResponse(BaseModel):
     file_deletion_warning: Optional[str] = None
     torrent_removed: Optional[bool] = None
 
+
+class MetadataRerunResponse(BaseModel):
+    """Response model for rerunning metadata collection."""
+    success: bool
+    message: str
+    imdb_id: str
+    error: Optional[str] = None
+    tmdb_success: Optional[bool] = None
+    omdb_success: Optional[bool] = None
+    errors: Optional[List[str]] = None
+    updated_fields: Optional[Dict[str, Any]] = None
+    fields_updated_count: Optional[int] = None
+
 class MediaResponseModel(BaseModel):
     """Model for media data response."""
     # Primary key

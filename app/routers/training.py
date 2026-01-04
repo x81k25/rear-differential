@@ -2,10 +2,11 @@
 import logging
 from fastapi import APIRouter, HTTPException, Query, Path
 from typing import Optional, List
-from app.models.api import TrainingListResponse, TrainingUpdateRequest, TrainingUpdateResponse, MediaType, LabelType
+from app.models.api import TrainingListResponse, TrainingUpdateRequest, TrainingUpdateResponse, MetadataRerunResponse, MediaType, LabelType
 from app.services.db_service import DatabaseService
 from app.services.file_service import FileService
 from app.services.transmission_service import TransmissionService
+from app.services.metadata_service import MetadataService
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ def get_router():
     db_service = DatabaseService()
     file_service = FileService()
     transmission_service = TransmissionService()
+    metadata_service = MetadataService()
 
     @router.get("", response_model=TrainingListResponse)
     async def get_training_data(
@@ -190,5 +192,93 @@ def get_router():
             return result
 
         return result
+
+    @router.patch("/{imdb_id}/rerun_metadata", response_model=MetadataRerunResponse)
+    async def rerun_metadata(
+        imdb_id: str = Path(..., description="The IMDB ID of the media item (format: tt followed by 7-8 digits)")
+    ):
+        """
+        Re-collect metadata from TMDB and OMDB APIs for an existing training record.
+
+        This endpoint:
+        1. Looks up the training record by IMDB ID
+        2. Fetches fresh metadata from TMDB (using tmdb_id if available)
+        3. Fetches fresh ratings from OMDB (using imdb_id)
+        4. Updates the training record with new metadata
+        """
+        # Get existing training record
+        training_result = db_service.get_training_by_imdb_id(imdb_id)
+
+        if not training_result.get("success", False):
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "success": False,
+                    "message": training_result.get("message", "Training data not found"),
+                    "imdb_id": imdb_id,
+                    "error": training_result.get("error")
+                }
+            )
+
+        training_data = training_result["data"]
+        tmdb_id = training_data.get("tmdb_id")
+        media_type = training_data.get("media_type", "movie")
+
+        # Collect metadata from APIs
+        metadata_result = metadata_service.collect_all_metadata(
+            imdb_id=imdb_id,
+            tmdb_id=tmdb_id,
+            media_type=media_type
+        )
+
+        if not metadata_result.get("success", False):
+            return {
+                "success": False,
+                "message": "Failed to collect metadata from external APIs",
+                "imdb_id": imdb_id,
+                "error": "API collection failed",
+                "tmdb_success": metadata_result.get("tmdb_success", False),
+                "omdb_success": metadata_result.get("omdb_success", False),
+                "errors": metadata_result.get("errors", [])
+            }
+
+        # Update training record with new metadata
+        collected_metadata = metadata_result.get("data", {})
+
+        if not collected_metadata:
+            return {
+                "success": False,
+                "message": "No metadata collected from APIs",
+                "imdb_id": imdb_id,
+                "error": "Empty metadata response",
+                "tmdb_success": metadata_result.get("tmdb_success", False),
+                "omdb_success": metadata_result.get("omdb_success", False),
+                "errors": metadata_result.get("errors", [])
+            }
+
+        # Update the training record
+        update_result = db_service.update_training_metadata(imdb_id, collected_metadata)
+
+        if not update_result.get("success", False):
+            return {
+                "success": False,
+                "message": "Failed to update training record",
+                "imdb_id": imdb_id,
+                "error": update_result.get("error"),
+                "tmdb_success": metadata_result.get("tmdb_success", False),
+                "omdb_success": metadata_result.get("omdb_success", False),
+                "errors": metadata_result.get("errors", [])
+            }
+
+        return {
+            "success": True,
+            "message": "Metadata successfully re-collected and updated",
+            "imdb_id": imdb_id,
+            "tmdb_success": metadata_result.get("tmdb_success", False),
+            "omdb_success": metadata_result.get("omdb_success", False),
+            "errors": metadata_result.get("errors", []) if metadata_result.get("errors") else None,
+            "updated_fields": update_result.get("updated_fields"),
+            "fields_updated_count": update_result.get("fields_updated_count")
+        }
 
     return router

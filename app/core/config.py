@@ -33,6 +33,24 @@ class Settings(BaseSettings):
     REAR_DIFF_MEDIA_LIBRARY_PATH_MOVIES: str = Field(default="", description="Media library path for movies")
     REAR_DIFF_MEDIA_LIBRARY_PATH_TV: str = Field(default="", description="Media library path for TV shows")
 
+    # TMDB API Configuration (Movie)
+    REAR_DIFF_MOVIE_SEARCH_API_BASE_URL: str = Field(default="https://api.themoviedb.org/3/search/movie", description="TMDB movie search API URL")
+    REAR_DIFF_MOVIE_DETAILS_API_BASE_URL: str = Field(default="https://api.themoviedb.org/3/movie", description="TMDB movie details API URL")
+    REAR_DIFF_MOVIE_SEARCH_API_KEY: str = Field(default="", description="TMDB movie search API key")
+    REAR_DIFF_MOVIE_DETAILS_API_KEY: str = Field(default="", description="TMDB movie details API key")
+
+    # TMDB API Configuration (TV)
+    REAR_DIFF_TV_SEARCH_API_BASE_URL: str = Field(default="https://api.themoviedb.org/3/search/tv", description="TMDB TV search API URL")
+    REAR_DIFF_TV_DETAILS_API_BASE_URL: str = Field(default="https://api.themoviedb.org/3/tv", description="TMDB TV details API URL")
+    REAR_DIFF_TV_SEARCH_API_KEY: str = Field(default="", description="TMDB TV search API key")
+    REAR_DIFF_TV_DETAILS_API_KEY: str = Field(default="", description="TMDB TV details API key")
+
+    # OMDB API Configuration (Ratings)
+    REAR_DIFF_MOVIE_RATINGS_API_BASE_URL: str = Field(default="http://www.omdbapi.com/", description="OMDB movie ratings API URL")
+    REAR_DIFF_MOVIE_RATINGS_API_KEY: str = Field(default="", description="OMDB movie ratings API key")
+    REAR_DIFF_TV_RATINGS_API_BASE_URL: str = Field(default="http://www.omdbapi.com/", description="OMDB TV ratings API URL")
+    REAR_DIFF_TV_RATINGS_API_KEY: str = Field(default="", description="OMDB TV ratings API key")
+
     class Config:
         env_file = ".env"
         case_sensitive = True
