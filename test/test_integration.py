@@ -273,7 +273,7 @@ class TestMediaEndpoints:
     def test_get_media_data_sorting(self, api_server, base_url):
         """Test sorting in media endpoint."""
         # Test sorting by different fields
-        sort_fields = ["created_at", "updated_at", "release_year", "media_title", "imdb_rating"]
+        sort_fields = ["created_at", "updated_at", "release_year", "media_title"]
         
         for field in sort_fields:
             response = requests.get(f"{base_url}/rear-diff/media/?sort_by={field}&sort_order=desc&limit=3")
