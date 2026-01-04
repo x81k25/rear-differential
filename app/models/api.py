@@ -47,7 +47,7 @@ class TrainingResponseModel(BaseModel):
     tmdb_id: Optional[int] = None
 
     # Label columns
-    label: LabelType
+    label: Optional[LabelType] = None
 
     # Media identifying information
     media_type: MediaType
@@ -263,36 +263,7 @@ class MediaResponseModel(BaseModel):
     # External IDs
     imdb_id: Optional[str] = None
     tmdb_id: Optional[int] = None
-    
-    # Financial data
-    budget: Optional[int] = None
-    revenue: Optional[int] = None
-    runtime: Optional[int] = None
-    
-    # Country and production information
-    origin_country: Optional[List[str]] = None
-    production_companies: Optional[List[str]] = None
-    production_countries: Optional[List[str]] = None
-    production_status: Optional[str] = None
-    
-    # Language information
-    original_language: Optional[str] = None
-    spoken_languages: Optional[List[str]] = None
-    
-    # Content information
-    genre: Optional[List[str]] = None
-    original_media_title: Optional[str] = None
-    tagline: Optional[str] = None
-    overview: Optional[str] = None
-    
-    # Ratings
-    tmdb_rating: Optional[Decimal] = None
-    tmdb_votes: Optional[int] = None
-    rt_score: Optional[int] = None
-    metascore: Optional[int] = None
-    imdb_rating: Optional[Decimal] = None
-    imdb_votes: Optional[int] = None
-    
+
     # Technical information
     resolution: Optional[str] = None
     video_codec: Optional[str] = None
@@ -325,42 +296,6 @@ class MediaResponseModel(BaseModel):
     def validate_release_year(cls, v):
         if v is not None and (v < 1850 or v > 2100):
             raise ValueError('Release year must be between 1850 and 2100')
-        return v
-
-    @validator('budget', 'revenue')
-    def validate_non_negative(cls, v):
-        if v is not None and v < 0:
-            raise ValueError('Value must be non-negative')
-        return v
-
-    @validator('runtime')
-    def validate_runtime(cls, v):
-        if v is not None and v < 0:
-            raise ValueError('Runtime must be non-negative')
-        return v
-
-    @validator('tmdb_rating')
-    def validate_tmdb_rating(cls, v):
-        if v is not None and (v < 0 or v > 10):
-            raise ValueError('TMDB rating must be between 0 and 10')
-        return v
-
-    @validator('rt_score', 'metascore')
-    def validate_percentage_scores(cls, v):
-        if v is not None and (v < 0 or v > 100):
-            raise ValueError('Score must be between 0 and 100')
-        return v
-
-    @validator('imdb_rating')
-    def validate_imdb_rating(cls, v):
-        if v is not None and (v < 0 or v > 100):
-            raise ValueError('IMDB rating must be between 0 and 100')
-        return v
-
-    @validator('tmdb_votes', 'imdb_votes')
-    def validate_votes(cls, v):
-        if v is not None and v < 0:
-            raise ValueError('Votes must be non-negative')
         return v
 
 class MediaListResponse(BaseModel):

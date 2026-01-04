@@ -26,7 +26,7 @@ def get_router():
         imdb_id: Optional[str] = None,
         media_title: Optional[str] = None,
         hash: Optional[str] = None,
-        sort_by: str = Query("created_at", regex="^(created_at|updated_at|release_year|media_title|imdb_rating)$"),
+        sort_by: str = Query("created_at", regex="^(created_at|updated_at|release_year|media_title)$"),
         sort_order: str = Query("desc", regex="^(asc|desc)$")
     ):
         """
