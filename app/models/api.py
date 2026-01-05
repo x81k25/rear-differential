@@ -579,3 +579,56 @@ class MovieListResponse(BaseModel):
     """Response model for the movie data listing endpoint."""
     data: List[MovieResponseModel]
     pagination: Dict[str, Any]
+
+
+# Batch Job Models
+class JobStatus(str, Enum):
+    PENDING = "pending"
+    VALIDATING = "validating"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class BatchMetadataRequest(BaseModel):
+    """Request model for batch metadata rerun."""
+    imdb_ids: List[str] = Field(..., min_length=1, max_length=10000, description="List of IMDB IDs to process")
+
+    @validator('imdb_ids')
+    def validate_imdb_ids(cls, v):
+        for imdb_id in v:
+            if not re.match(r'^tt[0-9]{7,8}$', imdb_id):
+                raise ValueError(f'Invalid IMDB ID format: {imdb_id}')
+        return v
+
+
+class BatchJobResult(BaseModel):
+    """Result for a single item in batch processing."""
+    imdb_id: str
+    success: bool
+    error: Optional[str] = None
+    tmdb_success: Optional[bool] = None
+    omdb_success: Optional[bool] = None
+
+
+class BatchJobStatusResponse(BaseModel):
+    """Response model for batch job status."""
+    job_id: str
+    status: JobStatus
+    total: int
+    processed: int
+    succeeded: int
+    failed: int
+    last_processed: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    error: Optional[str] = None
+    results: Optional[List[BatchJobResult]] = None
+
+
+class BatchJobCreateResponse(BaseModel):
+    """Response model for batch job creation."""
+    job_id: str
+    status: JobStatus
+    total: int
+    message: str

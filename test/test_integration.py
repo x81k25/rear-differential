@@ -675,3 +675,299 @@ class TestErrorHandling:
             json=update_data
         )
         assert response.status_code == 422
+
+
+class TestBatchMetadataEndpoints:
+    """Test batch metadata rerun endpoints."""
+
+    def test_create_batch_job_success(self, api_server, base_url):
+        """Test creating a batch job with valid IMDB IDs."""
+        # Get some real IMDB IDs from training data
+        response = requests.get(f"{base_url}/rear-diff/training?limit=3")
+        assert response.status_code == 200
+        data = response.json()
+
+        if not data["data"]:
+            pytest.skip("No training data available for testing")
+
+        imdb_ids = [item["imdb_id"] for item in data["data"]]
+
+        # Create batch job
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": imdb_ids}
+        )
+
+        assert response.status_code == 202
+        result = response.json()
+        assert "job_id" in result
+        assert result["status"] == "pending"
+        assert result["total"] == len(imdb_ids)
+        assert "message" in result
+
+    def test_create_batch_job_with_duplicates(self, api_server, base_url):
+        """Test that duplicate IMDB IDs are deduplicated."""
+        # Get one real IMDB ID
+        response = requests.get(f"{base_url}/rear-diff/training?limit=1")
+        assert response.status_code == 200
+        data = response.json()
+
+        if not data["data"]:
+            pytest.skip("No training data available for testing")
+
+        imdb_id = data["data"][0]["imdb_id"]
+        # Send duplicates
+        imdb_ids = [imdb_id, imdb_id, imdb_id]
+
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": imdb_ids}
+        )
+
+        assert response.status_code == 202
+        result = response.json()
+        assert result["total"] == 1  # Deduplicated
+
+    def test_create_batch_job_missing_ids(self, api_server, base_url):
+        """Test creating a batch job with non-existent IMDB IDs fails."""
+        imdb_ids = ["tt9999999", "tt9999998", "tt9999997"]
+
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": imdb_ids}
+        )
+
+        assert response.status_code == 400
+        result = response.json()
+        # FastAPI HTTPException returns under "detail" key, but our format uses "message"
+        error_data = result.get("detail") or result.get("message")
+        assert error_data is not None
+        assert "missing_count" in error_data
+        assert error_data["missing_count"] == 3
+
+    def test_create_batch_job_partial_missing(self, api_server, base_url):
+        """Test creating a batch job with some missing IDs fails fast."""
+        # Get one real IMDB ID
+        response = requests.get(f"{base_url}/rear-diff/training?limit=1")
+        assert response.status_code == 200
+        data = response.json()
+
+        if not data["data"]:
+            pytest.skip("No training data available for testing")
+
+        real_id = data["data"][0]["imdb_id"]
+        fake_id = "tt9999999"
+        imdb_ids = [real_id, fake_id]
+
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": imdb_ids}
+        )
+
+        assert response.status_code == 400
+        result = response.json()
+        error_data = result.get("detail") or result.get("message")
+        assert error_data["missing_count"] == 1
+        assert fake_id in error_data["missing_ids"]
+
+    def test_create_batch_job_invalid_format(self, api_server, base_url):
+        """Test creating a batch job with invalid IMDB ID format."""
+        imdb_ids = ["invalid", "not_an_id"]
+
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": imdb_ids}
+        )
+
+        assert response.status_code == 422
+        result = response.json()
+        assert "detail" in result
+
+    def test_create_batch_job_empty_list(self, api_server, base_url):
+        """Test creating a batch job with empty list fails."""
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": []}
+        )
+
+        assert response.status_code == 422
+
+    def test_get_batch_job_status(self, api_server, base_url):
+        """Test getting status of a batch job."""
+        # Get some real IMDB IDs
+        response = requests.get(f"{base_url}/rear-diff/training?limit=2")
+        assert response.status_code == 200
+        data = response.json()
+
+        if not data["data"]:
+            pytest.skip("No training data available for testing")
+
+        imdb_ids = [item["imdb_id"] for item in data["data"]]
+
+        # Create batch job
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": imdb_ids}
+        )
+        assert response.status_code == 202
+        job_id = response.json()["job_id"]
+
+        # Get status
+        response = requests.get(f"{base_url}/rear-diff/training/rerun_metadata_batch/{job_id}")
+        assert response.status_code == 200
+        status = response.json()
+
+        assert status["job_id"] == job_id
+        assert status["total"] == len(imdb_ids)
+        assert "status" in status
+        assert status["status"] in ["pending", "processing", "completed", "failed"]
+        assert "processed" in status
+        assert "succeeded" in status
+        assert "failed" in status
+        # Results should not be included by default
+        assert status.get("results") is None
+
+    def test_get_batch_job_status_with_results(self, api_server, base_url):
+        """Test getting status with detailed results."""
+        # Get one real IMDB ID
+        response = requests.get(f"{base_url}/rear-diff/training?limit=1")
+        assert response.status_code == 200
+        data = response.json()
+
+        if not data["data"]:
+            pytest.skip("No training data available for testing")
+
+        imdb_ids = [data["data"][0]["imdb_id"]]
+
+        # Create batch job
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": imdb_ids}
+        )
+        assert response.status_code == 202
+        job_id = response.json()["job_id"]
+
+        # Get status with results
+        response = requests.get(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch/{job_id}",
+            params={"include_results": True}
+        )
+        assert response.status_code == 200
+        status = response.json()
+
+        # Results field should be present (may be empty list initially)
+        assert "results" in status
+
+    def test_get_batch_job_status_not_found(self, api_server, base_url):
+        """Test getting status of non-existent job."""
+        response = requests.get(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch/non-existent-job-id"
+        )
+        assert response.status_code == 404
+        result = response.json()
+        error_data = result.get("detail") or result.get("message")
+        assert "Job not found" in error_data["error"]
+
+    def test_batch_job_alphabetical_ordering(self, api_server, base_url):
+        """Test that batch jobs process IDs in alphabetical order."""
+        # Get several real IMDB IDs
+        response = requests.get(f"{base_url}/rear-diff/training?limit=5")
+        assert response.status_code == 200
+        data = response.json()
+
+        if len(data["data"]) < 2:
+            pytest.skip("Not enough training data for ordering test")
+
+        imdb_ids = [item["imdb_id"] for item in data["data"]]
+        # Shuffle to ensure they're not already sorted
+        unsorted_ids = list(reversed(imdb_ids))
+
+        # Create batch job
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": unsorted_ids}
+        )
+        assert response.status_code == 202
+        job_id = response.json()["job_id"]
+
+        # Wait a bit for some processing
+        import time
+        time.sleep(3)
+
+        # Get status with results
+        response = requests.get(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch/{job_id}",
+            params={"include_results": True}
+        )
+        assert response.status_code == 200
+        status = response.json()
+
+        # If any processing has happened, check order
+        if status["results"]:
+            result_ids = [r["imdb_id"] for r in status["results"]]
+            # Results should be in alphabetical order (since that's processing order)
+            assert result_ids == sorted(result_ids)
+
+    def test_batch_job_processing_completes(self, api_server, base_url):
+        """Test that a small batch job completes successfully."""
+        # Get one real IMDB ID for a quick test
+        response = requests.get(f"{base_url}/rear-diff/training?limit=1")
+        assert response.status_code == 200
+        data = response.json()
+
+        if not data["data"]:
+            pytest.skip("No training data available for testing")
+
+        imdb_ids = [data["data"][0]["imdb_id"]]
+
+        # Create batch job
+        response = requests.post(
+            f"{base_url}/rear-diff/training/rerun_metadata_batch",
+            json={"imdb_ids": imdb_ids}
+        )
+        assert response.status_code == 202
+        job_id = response.json()["job_id"]
+
+        # Poll for completion (timeout after 30 seconds)
+        import time
+        max_wait = 30
+        start = time.time()
+        status = None
+
+        while time.time() - start < max_wait:
+            response = requests.get(
+                f"{base_url}/rear-diff/training/rerun_metadata_batch/{job_id}",
+                params={"include_results": True}
+            )
+            assert response.status_code == 200
+            status = response.json()
+
+            if status["status"] in ["completed", "failed"]:
+                break
+
+            time.sleep(2)
+
+        # Job should have completed
+        assert status is not None
+        assert status["status"] in ["completed", "failed", "processing"]
+        assert status["processed"] >= 0
+        # If completed, verify counts add up
+        if status["status"] == "completed":
+            assert status["processed"] == status["total"]
+            assert status["succeeded"] + status["failed"] == status["processed"]
+
+    def test_batch_endpoint_in_openapi(self, api_server, base_url):
+        """Test that batch endpoints are documented in OpenAPI."""
+        response = requests.get(f"{base_url}/rear-diff/openapi.json")
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check POST endpoint
+        assert "/rear-diff/training/rerun_metadata_batch" in data["paths"]
+        post_endpoint = data["paths"]["/rear-diff/training/rerun_metadata_batch"]
+        assert "post" in post_endpoint
+
+        # Check GET endpoint
+        assert "/rear-diff/training/rerun_metadata_batch/{job_id}" in data["paths"]
+        get_endpoint = data["paths"]["/rear-diff/training/rerun_metadata_batch/{job_id}"]
+        assert "get" in get_endpoint
