@@ -960,6 +960,136 @@ class DatabaseService:
             if conn:
                 conn.close()
 
+    def get_training_by_imdb_id(self, imdb_id: str) -> Dict[str, Any]:
+        """
+        Get a single training entry by IMDB ID.
+
+        Args:
+            imdb_id: The IMDB ID of the media item
+
+        Returns:
+            Dictionary with success status and training data or error message
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(
+                    "SELECT * FROM atp.training WHERE imdb_id = %s",
+                    (imdb_id,)
+                )
+                result = cursor.fetchone()
+
+                if result is None:
+                    return {
+                        "success": False,
+                        "error": "Training data not found",
+                        "message": f"No training data found with IMDB ID: {imdb_id}"
+                    }
+
+                return {
+                    "success": True,
+                    "data": dict(result)
+                }
+
+        except Exception as e:
+            logger.error(f"Error getting training by IMDB ID: {e}")
+            return {
+                "success": False,
+                "error": "Database error",
+                "message": str(e)
+            }
+        finally:
+            if conn:
+                conn.close()
+
+    def update_training_metadata(self, imdb_id: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update metadata fields for a training data entry.
+
+        Args:
+            imdb_id: The IMDB ID of the media item
+            metadata: Dictionary of metadata fields to update
+
+        Returns:
+            Dictionary with success status and message
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # Check if the training data entry exists
+                cursor.execute("SELECT 1 FROM atp.training WHERE imdb_id = %s", (imdb_id,))
+                if cursor.fetchone() is None:
+                    return {
+                        "success": False,
+                        "error": "Training data not found",
+                        "message": f"No training data found with IMDB ID: {imdb_id}"
+                    }
+
+                # Define valid metadata fields that can be updated
+                valid_fields = [
+                    "media_title", "release_year", "budget", "revenue", "runtime",
+                    "origin_country", "production_companies", "production_countries",
+                    "production_status", "original_language", "spoken_languages",
+                    "genre", "original_media_title", "tagline", "overview",
+                    "tmdb_rating", "tmdb_votes", "rt_score", "metascore",
+                    "imdb_rating", "imdb_votes"
+                ]
+
+                # Build dynamic update query
+                update_fields = []
+                params = []
+                updated_fields = {}
+
+                for field, value in metadata.items():
+                    if field in valid_fields and value is not None:
+                        update_fields.append(f"{field} = %s")
+                        params.append(value)
+                        updated_fields[field] = value
+
+                if not update_fields:
+                    return {
+                        "success": False,
+                        "error": "No valid fields to update",
+                        "message": "No valid metadata fields provided for update"
+                    }
+
+                # Add updated_at timestamp
+                update_fields.append("updated_at = NOW()")
+
+                # Add imdb_id to params
+                params.append(imdb_id)
+
+                # Execute update
+                query = f"""
+                    UPDATE atp.training
+                    SET {', '.join(update_fields)}
+                    WHERE imdb_id = %s
+                """
+                cursor.execute(query, params)
+                conn.commit()
+
+                return {
+                    "success": True,
+                    "message": "Training metadata updated successfully",
+                    "updated_fields": updated_fields,
+                    "fields_updated_count": len(updated_fields)
+                }
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Error updating training metadata: {e}")
+            return {
+                "success": False,
+                "error": "Database error",
+                "message": str(e)
+            }
+        finally:
+            if conn:
+                conn.close()
+
     def get_movie_data(self,
                       media_type: Optional[str] = None,
                       label: Optional[str] = None,

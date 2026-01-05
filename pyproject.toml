@@ -22,3 +22,22 @@ dev-dependencies = [
     "requests>=2.28.0",
     "pyyaml>=6.0.3",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--ignore=test/test_metadata_integration.py",
+    "--ignore=test/test_file_deletion.py",
+    "--ignore=test/test_file_deletion_dev.py",
+]
+markers = [
+    "integration: marks tests as integration tests (not run in CI/CD)",
+    "slow: marks tests as slow running",
+    "live: marks tests that require live API access",
+]
