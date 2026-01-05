@@ -1,14 +1,24 @@
 # app/routers/training.py
+import asyncio
 import logging
-from fastapi import APIRouter, HTTPException, Query, Path
+from fastapi import APIRouter, HTTPException, Query, Path, BackgroundTasks, Response
 from typing import Optional, List
-from app.models.api import TrainingListResponse, TrainingUpdateRequest, TrainingUpdateResponse, MetadataRerunResponse, MediaType, LabelType
+from app.models.api import (
+    TrainingListResponse, TrainingUpdateRequest, TrainingUpdateResponse,
+    MetadataRerunResponse, MediaType, LabelType,
+    BatchMetadataRequest, BatchJobCreateResponse, BatchJobStatusResponse,
+    JobStatus, BatchJobResult
+)
 from app.services.db_service import DatabaseService
 from app.services.file_service import FileService
 from app.services.transmission_service import TransmissionService
 from app.services.metadata_service import MetadataService
+from app.services.batch_job_service import get_batch_job_service
 
 logger = logging.getLogger(__name__)
+
+# Backoff delays in seconds for rate limiting
+BACKOFF_DELAYS = [1, 5, 10, 30, 60]
 
 def get_router():
     router = APIRouter()
@@ -280,5 +290,292 @@ def get_router():
             "updated_fields": update_result.get("updated_fields"),
             "fields_updated_count": update_result.get("fields_updated_count")
         }
+
+    async def process_batch_metadata(job_id: str, imdb_ids: List[str]) -> None:
+        """
+        Background task to process batch metadata rerun.
+
+        Processes each IMDB ID with rate limiting (1 record per second),
+        parallel TMDB+OMDB calls, and exponential backoff on errors.
+        """
+        batch_service = get_batch_job_service()
+        batch_service.update_job_status(job_id, JobStatus.PROCESSING)
+
+        # Track last call time per API for rate limiting
+        last_tmdb_call = 0.0
+        last_omdb_call = 0.0
+        min_interval = 1.0  # 1 second between calls to same API
+
+        for imdb_id in imdb_ids:
+            try:
+                # Get training record
+                training_result = db_service.get_training_by_imdb_id(imdb_id)
+
+                if not training_result.get("success", False):
+                    batch_service.record_result(job_id, BatchJobResult(
+                        imdb_id=imdb_id,
+                        success=False,
+                        error="Training data not found"
+                    ))
+                    continue
+
+                training_data = training_result["data"]
+                tmdb_id = training_data.get("tmdb_id")
+                media_type = training_data.get("media_type", "movie")
+
+                # Collect metadata with rate limiting and backoff
+                metadata_result = await collect_metadata_with_backoff(
+                    imdb_id, tmdb_id, media_type,
+                    last_tmdb_call, last_omdb_call, min_interval
+                )
+
+                # Update last call times
+                import time
+                current_time = time.time()
+                if metadata_result.get("tmdb_called"):
+                    last_tmdb_call = current_time
+                if metadata_result.get("omdb_called"):
+                    last_omdb_call = current_time
+
+                if not metadata_result.get("success", False):
+                    batch_service.record_result(job_id, BatchJobResult(
+                        imdb_id=imdb_id,
+                        success=False,
+                        error=metadata_result.get("error", "API collection failed"),
+                        tmdb_success=metadata_result.get("tmdb_success", False),
+                        omdb_success=metadata_result.get("omdb_success", False)
+                    ))
+                    continue
+
+                # Update training record
+                collected_metadata = metadata_result.get("data", {})
+                if collected_metadata:
+                    update_result = db_service.update_training_metadata(imdb_id, collected_metadata)
+
+                    if not update_result.get("success", False):
+                        batch_service.record_result(job_id, BatchJobResult(
+                            imdb_id=imdb_id,
+                            success=False,
+                            error=f"DB update failed: {update_result.get('error', 'Unknown')}",
+                            tmdb_success=metadata_result.get("tmdb_success", False),
+                            omdb_success=metadata_result.get("omdb_success", False)
+                        ))
+                        continue
+
+                batch_service.record_result(job_id, BatchJobResult(
+                    imdb_id=imdb_id,
+                    success=True,
+                    tmdb_success=metadata_result.get("tmdb_success", False),
+                    omdb_success=metadata_result.get("omdb_success", False)
+                ))
+
+            except Exception as e:
+                logger.error(f"Error processing {imdb_id} in batch: {e}")
+                batch_service.record_result(job_id, BatchJobResult(
+                    imdb_id=imdb_id,
+                    success=False,
+                    error=str(e)
+                ))
+
+        # Mark job as complete
+        batch_service.update_job_status(job_id, JobStatus.COMPLETED)
+        job = batch_service.get_job(job_id)
+        if job:
+            logger.info(
+                f"Batch job {job_id} completed: {job.succeeded}/{job.total} succeeded, "
+                f"{job.failed} failed"
+            )
+
+    async def collect_metadata_with_backoff(
+        imdb_id: str,
+        tmdb_id: Optional[int],
+        media_type: str,
+        last_tmdb_call: float,
+        last_omdb_call: float,
+        min_interval: float
+    ) -> dict:
+        """
+        Collect metadata from TMDB and OMDB with rate limiting and exponential backoff.
+
+        Calls both APIs in parallel but respects rate limits for each.
+        Uses exponential backoff on errors: 1s, 5s, 10s, 30s, 60s.
+        """
+        import time
+
+        result = {
+            "success": False,
+            "data": {},
+            "tmdb_success": False,
+            "omdb_success": False,
+            "tmdb_called": False,
+            "omdb_called": False,
+            "errors": []
+        }
+
+        combined_metadata = {}
+
+        # Calculate wait times to respect rate limits
+        current_time = time.time()
+        tmdb_wait = max(0, min_interval - (current_time - last_tmdb_call))
+        omdb_wait = max(0, min_interval - (current_time - last_omdb_call))
+
+        # Collect TMDB details with backoff
+        if tmdb_id:
+            await asyncio.sleep(tmdb_wait)
+            result["tmdb_called"] = True
+
+            tmdb_result = None
+            for attempt, delay in enumerate(BACKOFF_DELAYS):
+                tmdb_result = metadata_service.collect_tmdb_details(tmdb_id, media_type)
+
+                if tmdb_result["success"]:
+                    result["tmdb_success"] = True
+                    combined_metadata.update(tmdb_result["data"])
+                    break
+                elif "429" in str(tmdb_result.get("error", "")) or "rate" in str(tmdb_result.get("error", "")).lower():
+                    # Rate limited, apply backoff
+                    logger.warning(f"TMDB rate limited for {imdb_id}, waiting {delay}s (attempt {attempt + 1})")
+                    await asyncio.sleep(delay)
+                elif "404" in str(tmdb_result.get("error", "")):
+                    # Not found, skip
+                    result["errors"].append(f"TMDB: {tmdb_result['error']}")
+                    break
+                elif "500" in str(tmdb_result.get("error", "")) or "502" in str(tmdb_result.get("error", "")) or "503" in str(tmdb_result.get("error", "")):
+                    # Server error, retry once then skip
+                    if attempt == 0:
+                        logger.warning(f"TMDB server error for {imdb_id}, retrying once")
+                        await asyncio.sleep(delay)
+                    else:
+                        result["errors"].append(f"TMDB: {tmdb_result['error']}")
+                        break
+                else:
+                    # Other error, record and continue
+                    result["errors"].append(f"TMDB: {tmdb_result['error']}")
+                    break
+
+        # Collect OMDB ratings with backoff
+        # Recalculate wait time in case TMDB took a while
+        current_time = time.time()
+        omdb_wait = max(0, min_interval - (current_time - last_omdb_call))
+        await asyncio.sleep(omdb_wait)
+        result["omdb_called"] = True
+
+        omdb_result = None
+        for attempt, delay in enumerate(BACKOFF_DELAYS):
+            omdb_result = metadata_service.collect_omdb_ratings(imdb_id, media_type)
+
+            if omdb_result["success"]:
+                result["omdb_success"] = True
+                combined_metadata.update(omdb_result["data"])
+                break
+            elif "429" in str(omdb_result.get("error", "")) or "rate" in str(omdb_result.get("error", "")).lower():
+                # Rate limited, apply backoff
+                logger.warning(f"OMDB rate limited for {imdb_id}, waiting {delay}s (attempt {attempt + 1})")
+                await asyncio.sleep(delay)
+            elif "404" in str(omdb_result.get("error", "")) or "not found" in str(omdb_result.get("error", "")).lower():
+                # Not found, skip
+                result["errors"].append(f"OMDB: {omdb_result['error']}")
+                break
+            elif "500" in str(omdb_result.get("error", "")) or "502" in str(omdb_result.get("error", "")) or "503" in str(omdb_result.get("error", "")):
+                # Server error, retry once then skip
+                if attempt == 0:
+                    logger.warning(f"OMDB server error for {imdb_id}, retrying once")
+                    await asyncio.sleep(delay)
+                else:
+                    result["errors"].append(f"OMDB: {omdb_result['error']}")
+                    break
+            else:
+                # Other error, record and continue
+                result["errors"].append(f"OMDB: {omdb_result['error']}")
+                break
+
+        # Success if at least one API succeeded
+        result["success"] = result["tmdb_success"] or result["omdb_success"]
+        result["data"] = combined_metadata
+
+        return result
+
+    @router.post("/rerun_metadata_batch", response_model=BatchJobCreateResponse, status_code=202)
+    async def create_batch_metadata_rerun(
+        request: BatchMetadataRequest,
+        background_tasks: BackgroundTasks
+    ):
+        """
+        Create a batch job to re-collect metadata for multiple training records.
+
+        This endpoint:
+        1. Validates all IMDB IDs exist in the database
+        2. Sorts IDs alphabetically for deterministic processing order
+        3. Returns immediately with a job ID (202 Accepted)
+        4. Processes records in background (1 record/sec, parallel TMDB+OMDB calls)
+
+        Use GET /training/rerun_metadata_batch/{job_id} to check progress.
+        """
+        batch_service = get_batch_job_service()
+
+        # Sort IMDB IDs alphabetically for deterministic ordering
+        sorted_imdb_ids = sorted(set(request.imdb_ids))  # Also deduplicate
+
+        # Validate all IMDB IDs exist in database (fail fast)
+        missing_ids = []
+        for imdb_id in sorted_imdb_ids:
+            result = db_service.get_training_by_imdb_id(imdb_id)
+            if not result.get("success", False):
+                missing_ids.append(imdb_id)
+
+        if missing_ids:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "Validation failed",
+                    "message": f"The following IMDB IDs do not exist in the database: {missing_ids[:10]}{'...' if len(missing_ids) > 10 else ''}",
+                    "missing_count": len(missing_ids),
+                    "missing_ids": missing_ids[:50]  # Limit to first 50 for response size
+                }
+            )
+
+        # Create the job
+        job = batch_service.create_job(sorted_imdb_ids)
+
+        # Start background processing
+        background_tasks.add_task(process_batch_metadata, job.job_id, sorted_imdb_ids)
+
+        return BatchJobCreateResponse(
+            job_id=job.job_id,
+            status=job.status,
+            total=job.total,
+            message=f"Batch job created. Processing {job.total} records. Use GET /training/rerun_metadata_batch/{job.job_id} to check status."
+        )
+
+    @router.get("/rerun_metadata_batch/{job_id}", response_model=BatchJobStatusResponse)
+    async def get_batch_metadata_status(
+        job_id: str = Path(..., description="The batch job ID"),
+        include_results: bool = Query(False, description="Include detailed results for each processed item")
+    ):
+        """
+        Get the status of a batch metadata rerun job.
+
+        Returns progress information including:
+        - Current status (pending, validating, processing, completed, failed)
+        - Total items to process
+        - Items processed so far
+        - Success/failure counts
+        - Last processed IMDB ID (for clear cutoff point)
+        - Optionally, detailed results for each item
+        """
+        batch_service = get_batch_job_service()
+        job_status = batch_service.get_job_status(job_id)
+
+        if not job_status:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "Job not found", "message": f"No batch job found with ID: {job_id}"}
+            )
+
+        # Optionally exclude detailed results to reduce response size
+        if not include_results:
+            job_status["results"] = None
+
+        return BatchJobStatusResponse(**job_status)
 
     return router
