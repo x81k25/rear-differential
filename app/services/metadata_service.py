@@ -194,10 +194,10 @@ class MetadataService:
                 except ValueError:
                     pass
 
-            # IMDB rating and votes
+            # IMDB rating and votes (scale to 0-100 to match DB convention)
             if data.get("imdbRating") and data["imdbRating"] != "N/A":
                 try:
-                    metadata["imdb_rating"] = float(data["imdbRating"])
+                    metadata["imdb_rating"] = float(data["imdbRating"]) * 10
                 except ValueError:
                     pass
 
