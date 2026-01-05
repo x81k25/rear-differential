@@ -170,7 +170,7 @@ class TestMetadataServiceOMDB:
         result = metadata_service.collect_omdb_ratings("tt0137523", "movie")
 
         assert result["success"] is True
-        assert result["data"]["imdb_rating"] == 8.8
+        assert result["data"]["imdb_rating"] == 88.0  # Scaled to 0-100
         assert result["data"]["imdb_votes"] == 2000000
         assert result["data"]["metascore"] == 66
         assert result["data"]["rt_score"] == 79
@@ -191,7 +191,7 @@ class TestMetadataServiceOMDB:
         result = metadata_service.collect_omdb_ratings("tt0903747", "tv_show")
 
         assert result["success"] is True
-        assert result["data"]["imdb_rating"] == 9.3
+        assert result["data"]["imdb_rating"] == 93.0  # Scaled to 0-100
         assert result["data"]["imdb_votes"] == 1500000
         assert "metascore" not in result["data"]  # N/A values excluded
         assert "rt_score" not in result["data"]  # TV shows don't get RT
@@ -273,7 +273,7 @@ class TestMetadataServiceCombined:
         assert result["tmdb_success"] is True
         assert result["omdb_success"] is True
         assert result["data"]["media_title"] == "Fight Club"
-        assert result["data"]["imdb_rating"] == 8.8
+        assert result["data"]["imdb_rating"] == 88.0  # Scaled to 0-100
 
     @patch('app.services.metadata_service.requests.get')
     def test_collect_all_metadata_tmdb_only(self, mock_get, metadata_service):
