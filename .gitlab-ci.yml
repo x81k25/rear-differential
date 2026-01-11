@@ -1,0 +1,36 @@
+stages:
+  - build
+
+variables:
+  # Non-sensitive defaults (can be overridden by CI/CD variables)
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  LOG_LEVEL: "INFO"
+
+build:
+  stage: build
+  tags:
+    - k8s
+    - docker
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/dockerfile"
+      --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}:sha-${CI_COMMIT_SHORT_SHA}"
+      --build-arg "API_HOST=${API_HOST}"
+      --build-arg "API_PORT=${API_PORT}"
+      --build-arg "LOG_LEVEL=${LOG_LEVEL}"
+      --build-arg "PGSQL_HOST=${PGSQL_HOST}"
+      --build-arg "PGSQL_PORT=${PGSQL_PORT}"
+      --build-arg "PGSQL_USER=${PGSQL_USER}"
+      --build-arg "PGSQL_PASSWORD=${PGSQL_PASSWORD}"
+      --build-arg "PGSQL_NAME=${PGSQL_NAME}"
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
