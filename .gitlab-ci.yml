@@ -23,15 +23,17 @@ variables:
     - apt-get update -qq && apt-get install -qq -y curl >/dev/null
     - curl -sLO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
     - chmod +x kubectl && mv kubectl /usr/local/bin/
-    # Fetch secrets from target namespace
-    - export REAR_DIFF_PGSQL_HOST=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_HOST}' | base64 -d)
-    - export REAR_DIFF_PGSQL_PORT=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PORT}' | base64 -d)
-    - export REAR_DIFF_PGSQL_USERNAME=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_USERNAME}' | base64 -d)
-    - export REAR_DIFF_PGSQL_PASSWORD=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PASSWORD}' | base64 -d)
-    - export REAR_DIFF_PGSQL_DATABASE=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_DATABASE}' | base64 -d)
     - uv sync
   script:
-    - uv run pytest test/ -v --tb=short
+    # Fetch secrets and run tests in one shell to preserve env vars
+    - |
+      export REAR_DIFF_PGSQL_HOST=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_HOST}' | base64 -d)
+      export REAR_DIFF_PGSQL_PORT=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PORT}' | base64 -d)
+      export REAR_DIFF_PGSQL_USERNAME=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_USERNAME}' | base64 -d)
+      export REAR_DIFF_PGSQL_PASSWORD=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PASSWORD}' | base64 -d)
+      export REAR_DIFF_PGSQL_DATABASE=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_DATABASE}' | base64 -d)
+      echo "Using DB host: $REAR_DIFF_PGSQL_HOST"
+      uv run pytest test/ -v --tb=short
 
 # Test for MR targeting dev
 test-dev:
