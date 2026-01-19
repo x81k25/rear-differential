@@ -25,14 +25,16 @@ variables:
     - chmod +x kubectl && mv kubectl /usr/local/bin/
     - uv sync
   script:
-    # Fetch secrets and run tests in one shell to preserve env vars
+    # Fetch config and secrets, then run tests in one shell to preserve env vars
     - |
-      export REAR_DIFF_PGSQL_HOST=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_HOST}' | base64 -d)
-      export REAR_DIFF_PGSQL_PORT=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PORT}' | base64 -d)
+      # From ConfigMap (non-sensitive)
+      export REAR_DIFF_PGSQL_HOST=$(kubectl get configmap rear-diff-config -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_HOST}')
+      export REAR_DIFF_PGSQL_PORT=$(kubectl get configmap rear-diff-config -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PORT}')
+      export REAR_DIFF_PGSQL_DATABASE=$(kubectl get configmap rear-diff-config -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_DATABASE}')
+      # From Secret (sensitive)
       export REAR_DIFF_PGSQL_USERNAME=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_USERNAME}' | base64 -d)
       export REAR_DIFF_PGSQL_PASSWORD=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PASSWORD}' | base64 -d)
-      export REAR_DIFF_PGSQL_DATABASE=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_DATABASE}' | base64 -d)
-      echo "Using DB host: $REAR_DIFF_PGSQL_HOST"
+      echo "Using DB: $REAR_DIFF_PGSQL_HOST:$REAR_DIFF_PGSQL_PORT/$REAR_DIFF_PGSQL_DATABASE"
       uv run pytest test/ -v --tb=short
 
 # Test for MR targeting dev
