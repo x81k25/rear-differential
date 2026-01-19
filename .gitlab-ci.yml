@@ -87,7 +87,7 @@ build:
     - echo "Testing API endpoints..."
     - |
       # Test training endpoint
-      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/training?limit=1")
+      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/training/?limit=1")
       CODE=$(echo "$RESP" | tail -1)
       if [ "$CODE" != "200" ]; then
         echo "Training endpoint failed: HTTP $CODE"
@@ -96,7 +96,7 @@ build:
       echo "Training endpoint: OK"
 
       # Test media endpoint
-      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/media?limit=1")
+      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/media/?limit=1")
       CODE=$(echo "$RESP" | tail -1)
       if [ "$CODE" != "200" ]; then
         echo "Media endpoint failed: HTTP $CODE"
@@ -105,7 +105,7 @@ build:
       echo "Media endpoint: OK"
 
       # Test prediction endpoint
-      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/prediction?limit=1")
+      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/prediction/?limit=1")
       CODE=$(echo "$RESP" | tail -1)
       if [ "$CODE" != "200" ]; then
         echo "Prediction endpoint failed: HTTP $CODE"
@@ -114,7 +114,7 @@ build:
       echo "Prediction endpoint: OK"
 
       # Test movies endpoint
-      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/movies?limit=1")
+      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/movies/?limit=1")
       CODE=$(echo "$RESP" | tail -1)
       if [ "$CODE" != "200" ]; then
         echo "Movies endpoint failed: HTTP $CODE"
@@ -123,7 +123,7 @@ build:
       echo "Movies endpoint: OK"
 
       # Test flyway endpoint
-      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/flyway")
+      RESP=$(curl -s -w "\n%{http_code}" "${SERVICE_URL}${API_BASE}/flyway/")
       CODE=$(echo "$RESP" | tail -1)
       if [ "$CODE" != "200" ]; then
         echo "Flyway endpoint failed: HTTP $CODE"
