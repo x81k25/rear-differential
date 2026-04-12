@@ -632,3 +632,36 @@ class BatchJobCreateResponse(BaseModel):
     status: JobStatus
     total: int
     message: str
+
+
+class SearchResultModel(BaseModel):
+    """A single torrent search result."""
+    title: Optional[str] = None
+    year: Optional[int] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    resolution: Optional[str] = None
+    video_codec: Optional[str] = None
+    magnet_link: Optional[str] = None
+    seeders: Optional[int] = None
+    leechers: Optional[int] = None
+    source: str
+
+
+class SearchListResponse(BaseModel):
+    """Response model for torrent search results."""
+    count: int
+    results: List[SearchResultModel]
+
+
+class TransmissionAddRequest(BaseModel):
+    """Request model for adding a torrent to Transmission."""
+    magnet_link: str
+
+
+class TransmissionAddResponse(BaseModel):
+    """Response model for adding a torrent to Transmission."""
+    success: bool
+    already_exists: Optional[bool] = None
+    message: str
+    torrent_name: Optional[str] = None
