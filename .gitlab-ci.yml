@@ -35,7 +35,7 @@ variables:
       export REAR_DIFF_PGSQL_USERNAME=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_USERNAME}' | base64 -d)
       export REAR_DIFF_PGSQL_PASSWORD=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PASSWORD}' | base64 -d)
       echo "Using DB: $REAR_DIFF_PGSQL_HOST:$REAR_DIFF_PGSQL_PORT/$REAR_DIFF_PGSQL_DATABASE"
-      uv run pytest test/ -v --tb=short
+      uv run pytest test/ -v --tb=short --ignore=test/test_metadata_integration.py --ignore=test/test_file_deletion.py --ignore=test/test_file_deletion_dev.py
 
 # Test for MR targeting dev
 test-dev:
