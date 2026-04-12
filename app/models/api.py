@@ -632,3 +632,25 @@ class BatchJobCreateResponse(BaseModel):
     status: JobStatus
     total: int
     message: str
+
+
+class SearchMediaType(str, Enum):
+    MOVIE = "movie"
+    TV = "tv"
+
+
+class SearchResultModel(BaseModel):
+    """A single torrent search result."""
+    title: Optional[str] = None
+    year: Optional[int] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    resolution: Optional[str] = None
+    video_codec: Optional[str] = None
+    source: str
+
+
+class SearchListResponse(BaseModel):
+    """Response model for torrent search results."""
+    count: int
+    results: List[SearchResultModel]

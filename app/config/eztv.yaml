@@ -1,0 +1,15 @@
+# EZTV API — TV shows only
+# Response: { torrents: [...] }
+# Has explicit season/episode fields and full magnet URLs
+
+type: json
+
+items_path: torrents
+
+fields:
+  title: "regex:title:^(.+?)\\s*[Ss]\\d"
+  year: "regex:title:((?:19|20)\\d{2})"
+  season: season
+  episode: episode
+  resolution: "regex:title:(\\d{3,4}p)"
+  video_codec: "regex:title:(x264|x265|HEVC|AVC|AV1|XviD|H\\.?264|H\\.?265)"

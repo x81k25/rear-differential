@@ -1,0 +1,17 @@
+# YTS API — movies only
+# Response is nested: data.movies[].torrents[]
+# Each movie has multiple torrent variants (quality/codec combos)
+
+type: json
+
+items_path: data.movies
+
+children_path: torrents
+
+fields:
+  title: parent.title_long
+  year: parent.year
+  season: null
+  episode: null
+  resolution: child.quality
+  video_codec: child.video_codec
