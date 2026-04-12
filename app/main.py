@@ -77,7 +77,7 @@ async def custom_redoc_html():
     )
 
 # Import routers and models before defining endpoints
-from app.routers import training, media, prediction, movies, search
+from app.routers import training, media, prediction, movies, search, transmission
 from app.services.db_service import DatabaseService
 from app.models.api import FlywayHistoryResponse
 
@@ -137,6 +137,7 @@ app.include_router(media.get_router(), prefix="/rear-diff/media", tags=["media"]
 app.include_router(prediction.get_router(), prefix="/rear-diff/prediction", tags=["prediction"])
 app.include_router(movies.get_router(), prefix="/rear-diff/movies", tags=["movies"])
 app.include_router(search.get_router(), prefix="/rear-diff/search", tags=["search"])
+app.include_router(transmission.get_router(), prefix="/rear-diff/transmission", tags=["transmission"])
 
 if __name__ == "__main__":
     import uvicorn

@@ -15,3 +15,6 @@ fields:
   episode: null
   resolution: child.quality
   video_codec: child.video_codec
+  magnet_link: "template:magnet:?xt=urn:btih:{child.hash}&dn={parent.title_long}"
+  seeders: child.seeds
+  leechers: child.peers

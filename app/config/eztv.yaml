@@ -13,3 +13,6 @@ fields:
   episode: episode
   resolution: "regex:title:(\\d{3,4}p)"
   video_codec: "regex:title:(x264|x265|HEVC|AVC|AV1|XviD|H\\.?264|H\\.?265)"
+  magnet_link: magnet_url
+  seeders: seeds
+  leechers: peers

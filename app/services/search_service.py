@@ -59,6 +59,18 @@ def _resolve_field(record, field_spec: str, parent: dict = None):
     if field_spec is None or field_spec == "null":
         return None
 
+    # template: magnet:?xt=urn:btih:{hash}&dn={name}
+    if isinstance(field_spec, str) and field_spec.startswith("template:"):
+        import urllib.parse
+        template = field_spec[len("template:"):]
+        def _replace(match):
+            ref = match.group(1)
+            val = _lookup(record, ref, parent)
+            if val is None:
+                return ""
+            return urllib.parse.quote(str(val), safe="")
+        return re.sub(r'\{([^}]+)\}', _replace, template)
+
     # regex:field:pattern
     if isinstance(field_spec, str) and field_spec.startswith("regex:"):
         parts = field_spec[len("regex:"):].split(":", 1)
@@ -208,4 +220,15 @@ class SearchService:
             except Exception as e:
                 logger.warning(f"Parse failed for {source_name}: {e}")
 
-        return all_parsed
+        # Deduplicate by magnet_link — keeps first occurrence
+        seen = set()
+        deduped = []
+        for item in all_parsed:
+            magnet = item.get("magnet_link")
+            if magnet and magnet in seen:
+                continue
+            if magnet:
+                seen.add(magnet)
+            deduped.append(item)
+
+        return deduped

@@ -17,3 +17,6 @@ fields:
   episode: "regex:name:[Ee](\\d{1,2})"
   resolution: "regex:name:(\\d{3,4}p)"
   video_codec: "regex:name:(x264|x265|HEVC|AVC|AV1|XviD|DivX|VP9|VC-1)"
+  magnet_link: "template:magnet:?xt=urn:btih:{info_hash}&dn={name}"
+  seeders: seeders
+  leechers: leechers
