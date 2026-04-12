@@ -1,0 +1,22 @@
+# The Pirate Bay API — general torrents
+# Response is a flat JSON array
+# All metadata is embedded in the "name" string
+
+type: json
+
+items_path: .
+
+filter:
+  field: id
+  not_equals: "0"
+
+fields:
+  title: name
+  year: "regex:name:((?:19|20)\\d{2})"
+  season: "regex:name:[Ss](\\d{1,2})"
+  episode: "regex:name:[Ee](\\d{1,2})"
+  resolution: "regex:name:(\\d{3,4}p)"
+  video_codec: "regex:name:(x264|x265|HEVC|AVC|AV1|XviD|DivX|VP9|VC-1)"
+  magnet_link: "template:magnet:?xt=urn:btih:{info_hash}&dn={name}"
+  seeders: seeders
+  leechers: leechers

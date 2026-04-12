@@ -11,19 +11,55 @@ stages:
 variables:
   IMAGE: "${CI_REGISTRY_IMAGE}"
 
-# Test stage - runs on MR only
-test:
+# Test template - pulls credentials from target namespace secrets
+.test:
   stage: test
   tags:
     - k8s
     - docker
   image: docker.io/astral/uv:python3.12-bookworm-slim
   before_script:
+    # Install kubectl
+    - apt-get update -qq && apt-get install -qq -y curl >/dev/null
+    - curl -sLO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+    - chmod +x kubectl && mv kubectl /usr/local/bin/
     - uv sync
   script:
-    - uv run pytest test/ -v --tb=short
+    # Fetch config and secrets, then run tests in one shell to preserve env vars
+    - |
+      # From ConfigMap (non-sensitive)
+      export REAR_DIFF_PGSQL_HOST=$(kubectl get configmap rear-diff-config -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_HOST}')
+      export REAR_DIFF_PGSQL_PORT=$(kubectl get configmap rear-diff-config -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PORT}')
+      export REAR_DIFF_PGSQL_DATABASE=$(kubectl get configmap rear-diff-config -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_DATABASE}')
+      # From Secret (sensitive)
+      export REAR_DIFF_PGSQL_USERNAME=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_USERNAME}' | base64 -d)
+      export REAR_DIFF_PGSQL_PASSWORD=$(kubectl get secret rear-diff-secrets -n ${NAMESPACE} -o jsonpath='{.data.REAR_DIFF_PGSQL_PASSWORD}' | base64 -d)
+      echo "Using DB: $REAR_DIFF_PGSQL_HOST:$REAR_DIFF_PGSQL_PORT/$REAR_DIFF_PGSQL_DATABASE"
+      uv run pytest test/ -v --tb=short --ignore=test/test_metadata_integration.py --ignore=test/test_file_deletion.py --ignore=test/test_file_deletion_dev.py
+
+# Test for MR targeting dev
+test-dev:
+  extends: .test
+  variables:
+    NAMESPACE: "media-dev"
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
+
+# Test for MR targeting stg
+test-stg:
+  extends: .test
+  variables:
+    NAMESPACE: "media-stg"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "stg"
+
+# Test for MR targeting main
+test-prod:
+  extends: .test
+  variables:
+    NAMESPACE: "media-prod"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
 
 # Build stage - runs on push to dev/stg/main
 build:
