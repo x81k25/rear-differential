@@ -634,11 +634,6 @@ class BatchJobCreateResponse(BaseModel):
     message: str
 
 
-class SearchMediaType(str, Enum):
-    MOVIE = "movie"
-    TV = "tv"
-
-
 class SearchResultModel(BaseModel):
     """A single torrent search result."""
     title: Optional[str] = None

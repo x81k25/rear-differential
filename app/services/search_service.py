@@ -175,30 +175,27 @@ async def _search_eztv(client: httpx.AsyncClient, query: str) -> dict:
 # Public interface
 # ---------------------------------------------------------------------------
 
-# Source selection per media type
-_SOURCES = {
-    "movie": [("yts", _search_yts), ("tpb", _search_tpb)],
-    "tv":    [("eztv", _search_eztv), ("tpb", _search_tpb)],
-}
+_SOURCES = [
+    ("yts", _search_yts),
+    ("tpb", _search_tpb),
+    ("eztv", _search_eztv),
+]
 
 
 class SearchService:
     """Searches public torrent APIs and returns parsed results."""
 
-    async def search(self, query: str, media_type: str) -> list[dict]:
+    async def search(self, query: str) -> list[dict]:
         """
-        Search for torrents matching query.
+        Search for torrents matching query across all sources.
 
         Args:
             query: text search string
-            media_type: "movie" or "tv"
 
         Returns:
             list of unified torrent result dicts
         """
-        sources = _SOURCES.get(media_type, [])
-        if not sources:
-            return []
+        sources = _SOURCES
 
         async with httpx.AsyncClient(
             headers={"User-Agent": USER_AGENT},

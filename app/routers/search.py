@@ -2,7 +2,7 @@
 """Search router for torrent search endpoints."""
 from fastapi import APIRouter, HTTPException, Query
 from app.services.search_service import SearchService
-from app.models.api import SearchListResponse, SearchMediaType
+from app.models.api import SearchListResponse
 import logging
 
 logger = logging.getLogger("rear-differential.search")
@@ -16,20 +16,16 @@ def get_router():
     @router.get("/", response_model=SearchListResponse)
     async def search_torrents(
         q: str = Query(..., min_length=1, description="Search text"),
-        media_type: SearchMediaType = Query(..., description="Media type: movie or tv"),
     ):
         """
-        Search public torrent APIs for matching content.
-
-        - **movie**: searches YTS and The Pirate Bay
-        - **tv**: searches EZTV and The Pirate Bay
+        Search public torrent APIs (YTS, The Pirate Bay, EZTV) for matching content.
 
         Returns parsed results with title, year, season, episode,
-        resolution, and video codec.
+        resolution, video codec, magnet link, seeders, and leechers.
         """
         try:
-            logger.info(f"Searching for q={q!r}, media_type={media_type.value}")
-            results = await search_service.search(q, media_type.value)
+            logger.info(f"Searching for q={q!r}")
+            results = await search_service.search(q)
             logger.info(f"Search returned {len(results)} results")
             return {"count": len(results), "results": results}
         except Exception as e:
