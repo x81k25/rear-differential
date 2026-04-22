@@ -1,7 +1,7 @@
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|main)$/
 
 stages:
   - test
@@ -45,14 +45,6 @@ test-dev:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
 
-# Test for MR targeting stg
-test-stg:
-  extends: .test
-  variables:
-    NAMESPACE: "media-stg"
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "stg"
-
 # Test for MR targeting main
 test-prod:
   extends: .test
@@ -61,7 +53,7 @@ test-prod:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
 
-# Build stage - runs on push to dev/stg/main
+# Build stage - runs on push to dev/main
 build:
   stage: build
   tags:
@@ -80,7 +72,7 @@ build:
       --destination "${IMAGE}:${CI_COMMIT_REF_NAME}"
       --destination "${IMAGE}:sha-${CI_COMMIT_SHORT_SHA}"
   rules:
-    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|main)$/
 
 # Deploy-test template
 .deploy-test:
@@ -179,17 +171,6 @@ deploy-test-dev:
     SERVICE_HOST: "rear-diff-dev.media-dev.svc.cluster.local"
   rules:
     - if: $CI_COMMIT_BRANCH == "dev"
-
-# Deploy-test for stg
-deploy-test-stg:
-  extends: .deploy-test
-  resource_group: rear-diff-stg
-  variables:
-    DEPLOYMENT: "rear-diff-stg"
-    NAMESPACE: "media-stg"
-    SERVICE_HOST: "rear-diff-stg.media-stg.svc.cluster.local"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "stg"
 
 # Deploy-test for prod
 deploy-test-prod:
